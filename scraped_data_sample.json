@@ -1,0 +1,121 @@
+[
+    {
+        "question": "A batsman scored 110 runs which included 3 boundaries and 8 sixes. What percent of his total score did he make by running between the wickets?",
+        "options": [
+            {
+                "id": "A",
+                "text": "45%"
+            },
+            {
+                "id": "B",
+                "text": "45 5 % 11"
+            },
+            {
+                "id": "C",
+                "text": "54 6 % 11"
+            },
+            {
+                "id": "D",
+                "text": "55%"
+            }
+        ],
+        "correct_answer": "B",
+        "explanation": "Number of runs made by running = 110 - (3 x 4 + 8 x 6) = 110 - (60) = 50. Required percentage = 50 x 100 % = 45 5 % 110 11 Video Explanation: https://youtu.be/X2zTnABqEHU"
+    },
+    {
+        "question": "Two students appeared at an examination. One of them secured 9 marks more than the other and his marks was 56% of the sum of their marks. The marks obtained by them are:",
+        "options": [
+            {
+                "id": "A",
+                "text": "39, 30"
+            },
+            {
+                "id": "B",
+                "text": "41, 32"
+            },
+            {
+                "id": "C",
+                "text": "42, 33"
+            },
+            {
+                "id": "D",
+                "text": "43, 34"
+            }
+        ],
+        "correct_answer": "C",
+        "explanation": "Let their marks be ( x + 9) and x . Then, x + 9 = 56 ( x + 9 + x ) 100 25( x + 9) = 14(2 x + 9) 3 x = 99 x = 33 So, their marks are 42 and 33."
+    },
+    {
+        "question": "A fruit seller had some apples. He sells 40% apples and still has 420 apples. Originally, he had:",
+        "options": [
+            {
+                "id": "A",
+                "text": "588 apples"
+            },
+            {
+                "id": "B",
+                "text": "600 apples"
+            },
+            {
+                "id": "C",
+                "text": "672 apples"
+            },
+            {
+                "id": "D",
+                "text": "700 apples"
+            }
+        ],
+        "correct_answer": "D",
+        "explanation": "Suppose originally he had x apples. Then, (100 - 40)% of x = 420. 60 x x = 420 100 x = 420 x 100 = 700. 60 Video Explanation: https://youtu.be/-Pv25Do3WwY"
+    },
+    {
+        "question": "What percentage of numbers from 1 to 70 have 1 or 9 in the unit's digit?",
+        "options": [
+            {
+                "id": "A",
+                "text": "1"
+            },
+            {
+                "id": "B",
+                "text": "14"
+            },
+            {
+                "id": "C",
+                "text": "20"
+            },
+            {
+                "id": "D",
+                "text": "21"
+            }
+        ],
+        "correct_answer": "C",
+        "explanation": "Clearly, the numbers which have 1 or 9 in the unit's digit, have squares that end in the digit 1. Such numbers from 1 to 70 are 1, 9, 11, 19, 21, 29, 31, 39, 41, 49, 51, 59, 61, 69. Number of such number =14 Required percentage = 14 x 100 % = 20%. 70 Video Explanation: https://youtu.be/cBamI6iRNIA"
+    },
+    {
+        "question": "If A = x % of y and B = y % of x , then which of the following is true?",
+        "options": [
+            {
+                "id": "A",
+                "text": "A is smaller than B."
+            },
+            {
+                "id": "B",
+                "text": "A is greater than B"
+            },
+            {
+                "id": "C",
+                "text": "Relationship between A and B cannot be determined."
+            },
+            {
+                "id": "D",
+                "text": "If x is smaller than y , then A is greater than B."
+            },
+            {
+                "id": "E",
+                "text": "None of these"
+            }
+        ],
+        "correct_answer": "E",
+        "explanation": "x % of y = x x y = y x x = y % of x 100 100 A = B."
+    }
+]

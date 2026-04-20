@@ -1,20 +1,98 @@
 // AI Question Generation API Route
 // Set GEMINI_API_KEY in your .env.local to enable AI generation.
 
+import { createClient } from "@supabase/supabase-js";
+
 export async function POST(request) {
   try {
     const { topic = "General Knowledge", difficulty = "Intermediate", count = 10 } = await request.json();
     const numQuestions = Math.min(Math.max(parseInt(count) || 10, 1), 50); // clamp 1-50
 
-    // ── Try Gemini AI Generation ──────────────────────────────────────────
+    // Initialize Supabase Client
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    let dbQuestions = [];
+
+    // ── 1. Try Fetching from Supabase Database ─────────────────────────────
+    if (topic && topic.length > 0) {
+      try {
+        const requestedTopics = topic.split(",").map(s => s.trim());
+        
+        // 1a. Find matching subjects
+        const { data: matchedSubjects } = await supabase
+          .from("subjects")
+          .select("id, name")
+          .in("name", requestedTopics);
+
+        if (matchedSubjects && matchedSubjects.length > 0) {
+          const subjectIds = matchedSubjects.map(s => s.id);
+          
+          // 1b. Find all topics under these subjects
+          const { data: matchedTopics } = await supabase
+            .from("topics")
+            .select("id, name, subject_id")
+            .in("subject_id", subjectIds);
+
+          if (matchedTopics && matchedTopics.length > 0) {
+            const topicIds = matchedTopics.map(t => t.id);
+
+            // 1c. Fetch real questions!
+            const { data: fetchedQuestions } = await supabase
+              .from("questions")
+              .select("*")
+              .in("topic_id", topicIds)
+              .limit(numQuestions * 2); // Fetch extra for randomization
+
+            if (fetchedQuestions && fetchedQuestions.length > 0) {
+              // Shuffle and slice
+              const shuffled = fetchedQuestions.sort(() => 0.5 - Math.random());
+              const selected = shuffled.slice(0, numQuestions);
+
+              // Map to the frontend component schema
+              dbQuestions = selected.map((q, i) => {
+                 const topicRef = matchedTopics.find(t => t.id === q.topic_id);
+                 let correctIndex = 0;
+                 if (q.correct_option === "A") correctIndex = 0;
+                 if (q.correct_option === "B") correctIndex = 1;
+                 if (q.correct_option === "C") correctIndex = 2;
+                 if (q.correct_option === "D") correctIndex = 3;
+
+                 return {
+                   id: q.id || i + 1,
+                   topic: topicRef ? topicRef.name : topic,
+                   text: q.question_text,
+                   options: [q.option_a, q.option_b, q.option_c, q.option_d],
+                   correct: correctIndex,
+                   step_by_step: q.explanation || "Detailed solution is not available for this question.",
+                   shortcut: null,
+                   mistake_reason: null
+                 };
+              });
+
+              // Return if we got enough questions purely from DB! (Or just return what we have)
+              if (dbQuestions.length > 0) {
+                 return Response.json({ questions: dbQuestions, source: "database" });
+              }
+            }
+          }
+        }
+      } catch (dbError) {
+        console.error("Database fetch failed:", dbError);
+      }
+    }
+
+
+    // ── 2. Fallback: Try Gemini AI Generation ──────────────────────────────
     if (process.env.GEMINI_API_KEY) {
       try {
         const { GoogleGenerativeAI } = await import("@google/generative-ai");
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-        const prompt = `You are an expert exam setter for Indian competitive exams (SSC, Railway, Banking).
-Generate exactly ${numQuestions} multiple choice questions on the topic: "${topic}" at difficulty: "${difficulty}".
+        const prompt = \`You are an expert exam setter for Indian competitive exams (SSC, Railway, Banking).
+Generate exactly \${numQuestions} multiple choice questions on the topic: "\${topic}" at difficulty: "\${difficulty}".
 
 RULES:
 - Return ONLY a JSON array. No explanations, no markdown, no triple backticks.
@@ -23,7 +101,7 @@ RULES:
 [
   {
     "id": 1,
-    "topic": "${topic}",
+    "topic": "\${topic}",
     "text": "Full question text here?",
     "options": ["Option A", "Option B", "Option C", "Option D"],
     "correct": 0,
@@ -34,15 +112,15 @@ RULES:
 ]
 
 - "correct" must be an integer 0-3 (index of the correct option in the options array).
-- Generate all ${numQuestions} unique questions.`;
+- Generate all \${numQuestions} unique questions.\`;
 
         const result = await model.generateContent(prompt);
         let rawText = result.response.text().trim();
 
         // Strip markdown code blocks if present
         rawText = rawText
-          .replace(/^```(?:json)?\s*/i, "")
-          .replace(/\s*```\s*$/i, "")
+          .replace(/^\`\`\`(?:json)?\s*/i, "")
+          .replace(/\s*\`\`\`\s*$/i, "")
           .trim();
 
         // Ensure it starts with "[" — extract the JSON array if needed
@@ -63,7 +141,7 @@ RULES:
       }
     }
 
-    // ── Fallback: generate questions from expanded bank ────────────────────
+    // ── 3. Fallback: generate questions from static bank ────────────────────
     const fallbackBank = buildFallbackQuestions(topic, numQuestions);
     return Response.json({ questions: fallbackBank, source: "fallback" });
 

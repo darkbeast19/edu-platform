@@ -1,0 +1,154 @@
+{
+  "subjects": [
+    {
+      "id": "63e980b6-5d42-4e8a-819e-949c0204cdd0",
+      "exam_id": "7b75389e-e630-47e8-a66f-b65deec5dad0",
+      "name": "Quantitative Aptitude",
+      "slug": "quant",
+      "created_at": "2026-04-17T11:55:29.723232+00:00"
+    },
+    {
+      "id": "f3c4b38e-b19a-443c-bd21-6c5d600115b4",
+      "exam_id": "7b75389e-e630-47e8-a66f-b65deec5dad0",
+      "name": "General Reasoning",
+      "slug": "reasoning",
+      "created_at": "2026-04-17T11:55:29.723232+00:00"
+    },
+    {
+      "id": "89bdf655-9fce-404f-81f6-9bdb08af73a8",
+      "exam_id": "7b75389e-e630-47e8-a66f-b65deec5dad0",
+      "name": "English Language",
+      "slug": "english",
+      "created_at": "2026-04-17T11:55:29.723232+00:00"
+    },
+    {
+      "id": "c591284e-b6ae-4545-be3b-6ddebc2cd127",
+      "exam_id": "7b75389e-e630-47e8-a66f-b65deec5dad0",
+      "name": "General Knowledge",
+      "slug": "gk",
+      "created_at": "2026-04-17T11:55:29.723232+00:00"
+    }
+  ],
+  "topics": [
+    {
+      "id": "65b8f2bf-b2ee-4921-ab24-e7ef5c7431a3",
+      "subject_id": "63e980b6-5d42-4e8a-819e-949c0204cdd0",
+      "name": "Ratio & Proportion",
+      "slug": "ratio-proportion",
+      "difficulty": 2,
+      "created_at": "2026-04-17T11:55:29.723232+00:00"
+    },
+    {
+      "id": "639f0c43-7201-4b06-9c14-b56a236fabbe",
+      "subject_id": "63e980b6-5d42-4e8a-819e-949c0204cdd0",
+      "name": "Percentage",
+      "slug": "percentage",
+      "difficulty": 2,
+      "created_at": "2026-04-17T11:55:29.723232+00:00"
+    },
+    {
+      "id": "b4e42bef-948f-4c5b-9a62-bd4369d0366c",
+      "subject_id": "63e980b6-5d42-4e8a-819e-949c0204cdd0",
+      "name": "Profit & Loss",
+      "slug": "profit-loss",
+      "difficulty": 3,
+      "created_at": "2026-04-17T11:55:29.723232+00:00"
+    },
+    {
+      "id": "25ab76a4-7264-460e-ada0-be12f908c0c6",
+      "subject_id": "63e980b6-5d42-4e8a-819e-949c0204cdd0",
+      "name": "Time & Work",
+      "slug": "time-work",
+      "difficulty": 3,
+      "created_at": "2026-04-17T11:55:29.723232+00:00"
+    },
+    {
+      "id": "b1b8a5ce-57e5-4ea8-b130-a7db87817fe7",
+      "subject_id": "63e980b6-5d42-4e8a-819e-949c0204cdd0",
+      "name": "Simple Interest",
+      "slug": "simple-interest",
+      "difficulty": 2,
+      "created_at": "2026-04-17T11:55:29.723232+00:00"
+    },
+    {
+      "id": "9983f1f9-9604-4695-90ae-1a6ed5bd0655",
+      "subject_id": "63e980b6-5d42-4e8a-819e-949c0204cdd0",
+      "name": "Compound Interest",
+      "slug": "compound-interest",
+      "difficulty": 3,
+      "created_at": "2026-04-17T11:55:29.723232+00:00"
+    },
+    {
+      "id": "4fd99e1f-ec5d-423c-86c5-539bafc855e0",
+      "subject_id": "63e980b6-5d42-4e8a-819e-949c0204cdd0",
+      "name": "Algebra",
+      "slug": "algebra",
+      "difficulty": 4,
+      "created_at": "2026-04-17T11:55:29.723232+00:00"
+    },
+    {
+      "id": "c994683a-bcce-4321-884f-617d90e8ab77",
+      "subject_id": "63e980b6-5d42-4e8a-819e-949c0204cdd0",
+      "name": "Trigonometry",
+      "slug": "trigonometry",
+      "difficulty": 4,
+      "created_at": "2026-04-17T11:55:29.723232+00:00"
+    },
+    {
+      "id": "42fc1d2f-9590-4f18-a17e-81d58fa0c054",
+      "subject_id": "63e980b6-5d42-4e8a-819e-949c0204cdd0",
+      "name": "Geometry",
+      "slug": "geometry",
+      "difficulty": 4,
+      "created_at": "2026-04-17T11:55:29.723232+00:00"
+    },
+    {
+      "id": "a27a753e-55d3-4e29-a255-99ae8f12a558",
+      "subject_id": "f3c4b38e-b19a-443c-bd21-6c5d600115b4",
+      "name": "Blood Relations",
+      "slug": "blood-relations",
+      "difficulty": 2,
+      "created_at": "2026-04-17T11:55:29.723232+00:00"
+    },
+    {
+      "id": "47db2ff9-9998-4cd6-90fd-2872d97f2d52",
+      "subject_id": "f3c4b38e-b19a-443c-bd21-6c5d600115b4",
+      "name": "Coding Decoding",
+      "slug": "coding-decoding",
+      "difficulty": 2,
+      "created_at": "2026-04-17T11:55:29.723232+00:00"
+    },
+    {
+      "id": "2889a789-5930-464b-aab0-2f73096299a5",
+      "subject_id": "f3c4b38e-b19a-443c-bd21-6c5d600115b4",
+      "name": "Syllogism",
+      "slug": "syllogism",
+      "difficulty": 3,
+      "created_at": "2026-04-17T11:55:29.723232+00:00"
+    },
+    {
+      "id": "c45abf92-d466-4bf4-9359-09881467fba5",
+      "subject_id": "f3c4b38e-b19a-443c-bd21-6c5d600115b4",
+      "name": "Direction & Distance",
+      "slug": "direction-distance",
+      "difficulty": 2,
+      "created_at": "2026-04-17T11:55:29.723232+00:00"
+    },
+    {
+      "id": "632b146a-1fa1-4514-a175-5fe298d3c546",
+      "subject_id": "f3c4b38e-b19a-443c-bd21-6c5d600115b4",
+      "name": "Mirror Images",
+      "slug": "mirror-images",
+      "difficulty": 3,
+      "created_at": "2026-04-17T11:55:29.723232+00:00"
+    },
+    {
+      "id": "c5bc17f2-71fe-43c5-8a12-c11be0a79a87",
+      "subject_id": "f3c4b38e-b19a-443c-bd21-6c5d600115b4",
+      "name": "Series Completion",
+      "slug": "series-completion",
+      "difficulty": 3,
+      "created_at": "2026-04-17T11:55:29.723232+00:00"
+    }
+  ]
+}
