@@ -12,7 +12,8 @@ import {
   TrendingUp, 
   Zap,
   Users,
-  BarChart3
+  BarChart3,
+  ChevronRight
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
