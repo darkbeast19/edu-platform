@@ -1,22 +1,166 @@
 @import "tailwindcss";
 
+/* ============================================================
+   AURAPREP — Design System Tokens
+   ============================================================ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #1e293b;
+  --bg-primary: #0a0a0f;
+  --bg-card: #12121a;
+  --bg-elevated: #1a1a25;
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-medium: rgba(255, 255, 255, 0.1);
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --accent-blue: #3b82f6;
+  --accent-purple: #8b5cf6;
+  --accent-emerald: #10b981;
+  --accent-orange: #f97316;
+  --accent-yellow: #eab308;
+  --accent-rose: #f43f5e;
+  --gradient-primary: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  --glow-blue: 0 0 20px rgba(59, 130, 246, 0.4);
+  --glow-purple: 0 0 20px rgba(139, 92, 246, 0.4);
+  --radius-sm: 0.75rem;
+  --radius-md: 1rem;
+  --radius-lg: 1.5rem;
+  --radius-xl: 2rem;
+}
+
+/* ============================================================
+   Base Styles
+   ============================================================ */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+*::-webkit-scrollbar { width: 6px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 3px; }
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background-color: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Animations added for engaging elements */
+::selection {
+  background: rgba(139, 92, 246, 0.3);
+  color: #fff;
+}
+
+/* ============================================================
+   Custom Animations
+   ============================================================ */
+
 @keyframes pulse-slow {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.02); }
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.05); opacity: 1; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 15px rgba(59, 130, 246, 0.3); }
+  50% { box-shadow: 0 0 30px rgba(59, 130, 246, 0.6); }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .animate-pulse-slow {
-  animation: pulse-slow 3s infinite ease-in-out;
+  animation: pulse-slow 4s infinite ease-in-out;
+}
+
+.animate-float {
+  animation: float 6s infinite ease-in-out;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent 30%, rgba(255,255,255,0.05) 50%, transparent 70%);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 3s infinite ease-in-out;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.5s ease-out forwards;
+}
+
+/* ============================================================
+   Component Tokens
+   ============================================================ */
+
+.glass-card {
+  background: rgba(18, 18, 26, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.gradient-text {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-border {
+  position: relative;
+}
+.gradient-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--gradient-primary);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Hover lift effect */
+.hover-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+}
+
+/* Badge pill */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  border: 1px solid;
 }
