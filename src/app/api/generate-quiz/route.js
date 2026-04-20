@@ -252,10 +252,24 @@ function buildFallbackQuestions(topic, count) {
     },
   ];
 
-  // Filter by topic if possible, otherwise return mixed
+  // Strict topic filtering - never mix subjects
   const topicLower = (topic || "").toLowerCase();
-  const topicMatched = BANK.filter(q => q.topic.toLowerCase().includes(topicLower) || topicLower.includes(q.topic.toLowerCase().split(" ")[0]));
-  const pool = topicMatched.length >= 3 ? topicMatched : BANK;
+  
+  // Try exact topic match first
+  let pool = BANK.filter(q => q.topic.toLowerCase() === topicLower);
+  
+  // If no exact match, try partial match (e.g. "profit" matches "Profit & Loss")
+  if (pool.length === 0) {
+    pool = BANK.filter(q => 
+      q.topic.toLowerCase().includes(topicLower) || 
+      topicLower.includes(q.topic.toLowerCase().split("&")[0].trim()) ||
+      topicLower.includes(q.topic.toLowerCase().split(" ")[0])
+    );
+  }
+  
+  // Only use full BANK as last resort with a note if absolutely no match
+  if (pool.length === 0) pool = BANK;
+
 
   // Repeat/cycle questions to reach the desired count
   const result = [];
