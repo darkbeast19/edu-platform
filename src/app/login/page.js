@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { BrainCircuit, Mail, Lock, Flame, ArrowRight, Loader2 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { BrainCircuit, Mail, Lock, Flame, ArrowRight, Loader2, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -13,44 +12,85 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [successMsg, setSuccessMsg] = useState(null);
+  const [envStatus, setEnvStatus] = useState(null);
   const router = useRouter();
+
+  // On mount, check if env vars are available
+  useEffect(() => {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!url || !key) {
+      setEnvStatus("⚠️ Database not configured. Contact support.");
+    } else {
+      setEnvStatus(null); // all good
+    }
+  }, []);
 
   const handleAuth = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setSuccessMsg(null);
+
+    // Pre-check env vars
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      setError("Database configuration missing. Please check environment variables in Netlify dashboard.");
+      setLoading(false);
+      return;
+    }
 
     try {
+      const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
 
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            // Need to set email confirmation to false in Supabase Dashboard -> Auth -> Providers for quick MVP flow
             emailRedirectTo: `${window.location.origin}/auth/callback`,
           },
         });
         if (error) throw error;
-        alert("Success! Check your email or try logging in if auto-confirm is enabled.");
-        setIsSignUp(false);
+        if (data?.user?.identities?.length === 0) {
+          setError("An account with this email already exists. Please log in instead.");
+        } else {
+          setSuccessMsg("Account created! Check your email for a confirmation link, or try logging in directly.");
+          setIsSignUp(false);
+        }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         if (error) throw error;
-        router.push("/dashboard");
-        router.refresh(); // Refresh to update middleware state
+        if (data?.session) {
+          setSuccessMsg("Login successful! Redirecting...");
+          setTimeout(() => {
+            router.push("/dashboard");
+          }, 500);
+        } else {
+          setError("Login failed. No session created. Please try again.");
+        }
       }
     } catch (err) {
       console.error("Auth error:", err);
-      // Fallback for variable issues:
-      if (err.message.includes("supabaseUrl")) {
-         setError("Critical API Error: Database URL is missing. Please check Netlify Environment Variables.");
+      // Map common Supabase errors to user-friendly messages
+      if (err.message?.includes("Invalid login credentials")) {
+        setError("Wrong email or password. Please check and try again.");
+      } else if (err.message?.includes("Email not confirmed")) {
+        setError("Please confirm your email first. Check your inbox for a confirmation link.");
+      } else if (err.message?.includes("User already registered")) {
+        setError("This email is already registered. Please log in.");
+        setIsSignUp(false);
+      } else if (err.message?.includes("supabaseUrl") || err.message?.includes("URL")) {
+        setError("Database connection failed. Please check Netlify environment variables.");
       } else {
-         setError(err.message || "An unexpected error occurred.");
+        setError(err.message || "An unexpected error occurred. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -88,9 +128,26 @@ export default function LoginPage() {
             </p>
           </div>
 
+          {/* Env var warning */}
+          {envStatus && (
+            <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-xl text-yellow-400 text-xs font-medium flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              {envStatus}
+            </div>
+          )}
+
+          {/* Error message */}
           {error && (
-            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm font-medium text-center">
-              {error}
+            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm font-medium flex items-start gap-2">
+              <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {/* Success message */}
+          {successMsg && (
+            <div className="mb-6 p-4 bg-green-500/10 border border-green-500/20 rounded-xl text-green-400 text-sm font-medium text-center">
+              {successMsg}
             </div>
           )}
 
@@ -107,6 +164,7 @@ export default function LoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   className="block w-full pl-12 pr-4 py-3.5 bg-[#0a0a0f] border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all font-medium"
                   placeholder="name@example.com"
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -124,19 +182,23 @@ export default function LoginPage() {
                   className="block w-full pl-12 pr-4 py-3.5 bg-[#0a0a0f] border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all font-medium"
                   placeholder="••••••••"
                   minLength="6"
+                  disabled={loading}
                 />
               </div>
             </div>
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !!envStatus}
               className="w-full relative group overflow-hidden bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 rounded-xl font-bold text-lg hover:shadow-[0_0_20px_rgba(59,130,246,0.4)] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
               <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-purple-600 to-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"></div>
               <div className="relative flex items-center justify-center gap-2">
                 {loading ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>{isSignUp ? "Creating..." : "Logging in..."}</span>
+                  </>
                 ) : (
                   <>
                     {isSignUp ? "Start Journey" : "Log In"} <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -151,7 +213,7 @@ export default function LoginPage() {
               {isSignUp ? "Already a veteran?" : "New to the arena?"}
             </span>{" "}
             <button
-              onClick={() => setIsSignUp(!isSignUp)}
+              onClick={() => { setIsSignUp(!isSignUp); setError(null); setSuccessMsg(null); }}
               className="text-blue-400 hover:text-purple-400 transition-colors cursor-pointer"
             >
               {isSignUp ? "Log In" : "Sign up here."}
