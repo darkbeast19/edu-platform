@@ -20,9 +20,9 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
 
-    const supabase = createClient();
-
     try {
+      const supabase = createClient();
+
       if (isSignUp) {
         const { error } = await supabase.auth.signUp({
           email,
@@ -45,7 +45,13 @@ export default function LoginPage() {
         router.refresh(); // Refresh to update middleware state
       }
     } catch (err) {
-      setError(err.message);
+      console.error("Auth error:", err);
+      // Fallback for variable issues:
+      if (err.message.includes("supabaseUrl")) {
+         setError("Critical API Error: Database URL is missing. Please check Netlify Environment Variables.");
+      } else {
+         setError(err.message || "An unexpected error occurred.");
+      }
     } finally {
       setLoading(false);
     }
