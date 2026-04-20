@@ -38,16 +38,28 @@ export async function POST(request) {
           if (matchedTopics && matchedTopics.length > 0) {
             const topicIds = matchedTopics.map(t => t.id);
 
-            // 1c. Fetch real questions!
+            // 1c. Fetch real questions (fetch 5x to ensure unique pool)
             const { data: fetchedQuestions } = await supabase
               .from("questions")
               .select("*")
               .in("topic_id", topicIds)
-              .limit(numQuestions * 2); // Fetch extra for randomization
+              .limit(numQuestions * 5); // Fetch big pool for randomization
 
             if (fetchedQuestions && fetchedQuestions.length > 0) {
-              // Shuffle and slice
-              const shuffled = fetchedQuestions.sort(() => 0.5 - Math.random());
+              // Deduplicate by question text first
+              const seen = new Set();
+              const unique = fetchedQuestions.filter(q => {
+                const key = q.question_text?.trim().toLowerCase();
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+              });
+              // Fisher-Yates proper shuffle
+              for (let i = unique.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [unique[i], unique[j]] = [unique[j], unique[i]];
+              }
+              const shuffled = unique;
               const selected = shuffled.slice(0, numQuestions);
 
               // Map to the frontend component schema
@@ -267,15 +279,17 @@ function buildFallbackQuestions(topic, count) {
     );
   }
   
-  // Only use full BANK as last resort with a note if absolutely no match
+  // Only use full BANK as last resort if absolutely no match
   if (pool.length === 0) pool = BANK;
 
-
-  // Repeat/cycle questions to reach the desired count
-  const result = [];
-  for (let i = 0; i < count; i++) {
-    const q = { ...pool[i % pool.length], id: i + 1 };
-    result.push(q);
+  // Fisher-Yates shuffle for true randomization
+  const shuffled = [...pool];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
-  return result;
+
+  // NEVER repeat - return only as many unique questions as available
+  const available = Math.min(count, shuffled.length);
+  return shuffled.slice(0, available).map((q, i) => ({ ...q, id: i + 1 }));
 }
