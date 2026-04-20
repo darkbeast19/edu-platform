@@ -91,8 +91,8 @@ export async function POST(request) {
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-        const prompt = \`You are an expert exam setter for Indian competitive exams (SSC, Railway, Banking).
-Generate exactly \${numQuestions} multiple choice questions on the topic: "\${topic}" at difficulty: "\${difficulty}".
+        const prompt = `You are an expert exam setter for Indian competitive exams (SSC, Railway, Banking).
+Generate exactly ${numQuestions} multiple choice questions on the topic: "${topic}" at difficulty: "${difficulty}".
 
 RULES:
 - Return ONLY a JSON array. No explanations, no markdown, no triple backticks.
@@ -101,7 +101,7 @@ RULES:
 [
   {
     "id": 1,
-    "topic": "\${topic}",
+    "topic": "${topic}",
     "text": "Full question text here?",
     "options": ["Option A", "Option B", "Option C", "Option D"],
     "correct": 0,
@@ -112,15 +112,15 @@ RULES:
 ]
 
 - "correct" must be an integer 0-3 (index of the correct option in the options array).
-- Generate all \${numQuestions} unique questions.\`;
+- Generate all ${numQuestions} unique questions.`;
 
         const result = await model.generateContent(prompt);
         let rawText = result.response.text().trim();
 
         // Strip markdown code blocks if present
         rawText = rawText
-          .replace(/^\`\`\`(?:json)?\s*/i, "")
-          .replace(/\s*\`\`\`\s*$/i, "")
+          .replace(/^```(?:json)?\s*/i, "")
+          .replace(/\s*```\s*$/i, "")
           .trim();
 
         // Ensure it starts with "[" — extract the JSON array if needed
