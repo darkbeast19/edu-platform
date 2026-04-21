@@ -1,17 +1,16 @@
 // AI Question Generation API Route
 // Set GEMINI_API_KEY in your .env.local to enable AI generation.
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request) {
   try {
     const { topic = "General Knowledge", difficulty = "Intermediate", count = 10 } = await request.json();
     const numQuestions = Math.min(Math.max(parseInt(count) || 10, 1), 50); // clamp 1-50
 
-    // Initialize Supabase Client
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // Initialize Supabase Server Client (With Auth)
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
     let dbQuestions = [];
 
@@ -38,22 +37,38 @@ export async function POST(request) {
           if (matchedTopics && matchedTopics.length > 0) {
             const topicIds = matchedTopics.map(t => t.id);
 
-            // 1c. Fetch real questions (fetch 5x to ensure unique pool)
+            // 1c. Fetch past answered IDs to strictly prevent dupes
+            let answeredIds = new Set();
+            if (user) {
+              const { data: pastAnswers } = await supabase
+                .from("user_answers")
+                .select("question_id")
+                .eq("user_id", user.id);
+              if (pastAnswers) {
+                pastAnswers.forEach(a => answeredIds.add(a.question_id));
+              }
+            }
+
+            // 1d. Fetch real questions for these topics
             const { data: fetchedQuestions } = await supabase
               .from("questions")
               .select("*")
               .in("topic_id", topicIds)
-              .limit(numQuestions * 5); // Fetch big pool for randomization
+              .limit(1000); // Fetch generic pool
 
             if (fetchedQuestions && fetchedQuestions.length > 0) {
-              // Deduplicate by question text first
+              // Strictly filter out already answered questions
+              let candidateQuestions = fetchedQuestions.filter(q => !answeredIds.has(q.id));
+
+              // Deduplicate by question text first (just in case)
               const seen = new Set();
-              const unique = fetchedQuestions.filter(q => {
+              const unique = candidateQuestions.filter(q => {
                 const key = q.question_text?.trim().toLowerCase();
                 if (seen.has(key)) return false;
                 seen.add(key);
                 return true;
               });
+              
               // Fisher-Yates proper shuffle
               for (let i = unique.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));

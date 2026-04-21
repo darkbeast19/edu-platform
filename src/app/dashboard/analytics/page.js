@@ -25,6 +25,7 @@ const RECENT_TESTS = [
 export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
+  const [stats, setStats] = useState({ solved: 0, accuracy: "0.0" });
 
   useEffect(() => {
     async function loadData() {
@@ -33,6 +34,23 @@ export default function AnalyticsPage() {
       if (user) {
         const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
         if (data) setProfile(data);
+
+        // Fetch Real Answer Stats
+        const { count: totalQuestions } = await supabase
+          .from('user_answers')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+
+        const { count: correctAnswers } = await supabase
+          .from('user_answers')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('is_correct', true);
+
+        const solved = totalQuestions || 0;
+        const accuracy = solved > 0 ? ((correctAnswers / solved) * 100).toFixed(1) : "0.0";
+        
+        setStats({ solved, accuracy });
       }
       setLoading(false);
     }
@@ -70,10 +88,10 @@ export default function AnalyticsPage() {
         {/* Global Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
           {[
-            { label: "Total XP", value: profile?.xp_total?.toLocaleString() || "12,450", icon: Zap, color: "yellow" },
-            { label: "Overall Accuracy", value: "84.2%", icon: Target, color: "emerald" },
+            { label: "Total XP", value: profile?.xp_total?.toLocaleString() || "0", icon: Zap, color: "yellow" },
+            { label: "Overall Accuracy", value: `${stats.accuracy}%`, icon: Target, color: "emerald" },
             { label: "Avg. Time/Question", value: "42 sec", icon: Clock, color: "blue" },
-            { label: "Questions Solved", value: "1,284", icon: Activity, color: "purple" },
+            { label: "Questions Solved", value: stats.solved.toLocaleString(), icon: Activity, color: "purple" },
           ].map((stat, i) => {
             const Icon = stat.icon;
             return (

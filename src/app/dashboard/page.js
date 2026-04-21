@@ -34,6 +34,7 @@ export default function Dashboard() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [solvedCount, setSolvedCount] = useState(0);
 
   useEffect(() => {
     async function loadData() {
@@ -47,6 +48,13 @@ export default function Dashboard() {
           .eq('id', user.id)
           .single();
         if (profile) setProfile(profile);
+
+        // Fetch Real Answer Stats
+        const { count: totalQuestions } = await supabase
+          .from('user_answers')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+        if (totalQuestions !== null) setSolvedCount(totalQuestions);
       }
       setLoading(false);
     }
@@ -168,7 +176,7 @@ export default function Dashboard() {
                 </div>
                 <div className="bg-white/5 rounded-xl p-4 border border-white/5">
                   <BookOpen className="w-5 h-5 text-blue-400 mb-2" />
-                  <div className="text-2xl font-bold text-white leading-none">1,284</div>
+                  <div className="text-2xl font-bold text-white leading-none">{solvedCount.toLocaleString()}</div>
                   <div className="text-xs text-slate-400 mt-1">Questions Solved</div>
                 </div>
               </div>

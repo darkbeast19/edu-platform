@@ -17,10 +17,11 @@ import json
 import re
 import os
 from datetime import datetime
+from dotenv import load_dotenv
 
-# ─────────────────────────────────────────────────────────────
-# CONFIG - Update these with your Supabase credentials
-# ─────────────────────────────────────────────────────────────
+# Load env variables from .env.local
+load_dotenv(dotenv_path='.env.local')
+
 SUPABASE_URL = os.environ.get("NEXT_PUBLIC_SUPABASE_URL", "https://ftduapttjlpvvbcqcvnd.supabase.co")
 SUPABASE_KEY = os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY", "")
 
@@ -129,7 +130,7 @@ def get_or_create_exam(exam_name):
         return existing[0]["id"]
     created = supabase_request("POST", "exams", data={"name": exam_name, "slug": exam_name.lower().replace(" ", "-"), "description": f"{exam_name} preparation questions"})
     if created and len(created) > 0:
-        print(f"  ✅ Created exam: {exam_name}")
+        print(f"  [OK] Created exam: {exam_name}")
         return created[0]["id"]
     return None
 
@@ -139,7 +140,7 @@ def get_or_create_subject(subject_name, exam_id):
         return existing[0]["id"]
     created = supabase_request("POST", "subjects", data={"name": subject_name, "exam_id": exam_id, "slug": subject_name.lower().replace(" ", "-").replace("&", "and")})
     if created and len(created) > 0:
-        print(f"    ✅ Created subject: {subject_name}")
+        print(f"    [OK] Created subject: {subject_name}")
         return created[0]["id"]
     return None
 
@@ -149,7 +150,7 @@ def get_or_create_topic(topic_name, subject_id):
         return existing[0]["id"]
     created = supabase_request("POST", "topics", data={"name": topic_name, "subject_id": subject_id, "slug": topic_name.lower().replace(" ", "-").replace("&", "and")})
     if created and len(created) > 0:
-        print(f"      ✅ Created topic: {topic_name}")
+        print(f"      [OK] Created topic: {topic_name}")
         return created[0]["id"]
     return None
 
@@ -265,12 +266,12 @@ def upload_questions_batch(questions_data, topic_id, existing_texts):
 
 def run_scraper():
     print("=" * 60)
-    print("🚀 AuraPrep Comprehensive Scraper")
+    print("AuraPrep Comprehensive Scraper")
     print(f"   Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 60)
 
     if not SUPABASE_KEY:
-        print("❌ ERROR: SUPABASE_KEY not set! Set NEXT_PUBLIC_SUPABASE_ANON_KEY env var.")
+        print("[ERROR] SUPABASE_KEY not set! Set NEXT_PUBLIC_SUPABASE_ANON_KEY env var.")
         return
 
     # Group by exam
@@ -289,7 +290,7 @@ def run_scraper():
         topic_name = config["topic"]
         max_pages = config["pages"]
 
-        print(f"\n📚 {subject_name} → {topic_name}")
+        print(f"\n[SUBJECT] {subject_name} -> {topic_name}")
 
         subject_id = get_or_create_subject(subject_name, exam_id)
         if not subject_id:
@@ -321,7 +322,7 @@ def run_scraper():
             time.sleep(1.5)  # be polite to the server
 
         report.append({"topic": topic_name, "subject": subject_name, "status": "OK", "uploaded": topic_total})
-        print(f"   ✅ Total for '{topic_name}': {topic_total} questions")
+        print(f"   [OK] Total for '{topic_name}': {topic_total} questions")
         time.sleep(2)  # cooldown between topics
 
     # ── Print Report ──────────────────────────────────────────
@@ -338,12 +339,12 @@ def run_scraper():
 
     for subj, items in by_subject.items():
         subj_total = sum(i["uploaded"] for i in items)
-        print(f"\n  📗 {subj} ({subj_total} questions total)")
+        print(f"\n  [SECTION] {subj} ({subj_total} questions total)")
         for item in items:
-            status = "✅" if item["uploaded"] > 0 else "⚠️ "
+            status = "[OK]" if item["uploaded"] > 0 else "[WARN]"
             print(f"     {status} {item['topic']}: {item['uploaded']} uploaded")
 
-    print(f"\n🎯 GRAND TOTAL: {total_uploaded} questions uploaded")
+    print(f"\n[DONE] GRAND TOTAL: {total_uploaded} questions uploaded")
     print(f"   Completed: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 60)
 

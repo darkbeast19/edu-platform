@@ -158,19 +158,48 @@ function QuizEngineInner() {
     setIsSubmitted(true);
     setShowScoreboard(true);
 
-    if (userProfile && xpEarned > 0) {
+    if (userProfile) {
       try {
         const { createClient } = await import("@/lib/supabase/client");
         const supabase = createClient();
-        const newXp    = (userProfile.xp_total || 0) + xpEarned;
-        const newLevel = Math.floor(newXp / 500) + 1;
-        await supabase.from("profiles").update({
-          xp_total:    newXp,
-          level:       newLevel,
-          streak_days: (userProfile.streak_days || 0) > 0 ? userProfile.streak_days : 1
-        }).eq("id", userProfile.id);
+        
+        // 1. Give XP
+        if (xpEarned > 0) {
+          const newXp    = (userProfile.xp_total || 0) + xpEarned;
+          const newLevel = Math.floor(newXp / 500) + 1;
+          await supabase.from("profiles").update({
+            xp_total:    newXp,
+            level:       newLevel,
+            streak_days: (userProfile.streak_days || 0) > 0 ? userProfile.streak_days : 1
+          }).eq("id", userProfile.id);
+        }
+
+        // 2. Track answers immediately to prevent repeats in future sessions
+        const answerInserts = questions.map((q, idx) => {
+           let choiceVal = 'S'; // Skipped by default
+           if (selectedAnswers[idx] === 0) choiceVal = 'A';
+           if (selectedAnswers[idx] === 1) choiceVal = 'B';
+           if (selectedAnswers[idx] === 2) choiceVal = 'C';
+           if (selectedAnswers[idx] === 3) choiceVal = 'D';
+           
+           return {
+             user_id: userProfile.id,
+             question_id: q.id,
+             selected_option: choiceVal,
+             is_correct: selectedAnswers[idx] === q.correct,
+             is_marked_review: markedForReview.has(idx)
+           };
+        });
+
+        // Filter valid UUIDs to avoid inserting mockup/AI fallback question IDs into DB
+        const validInserts = answerInserts.filter(ans => typeof ans.question_id === "string" && ans.question_id.length === 36);
+
+        if (validInserts.length > 0) {
+           await supabase.from("user_answers").insert(validInserts);
+        }
+
       } catch (err) {
-        console.error("XP save failed:", err);
+        console.error("Quiz tracking failed:", err);
       }
     }
   };
