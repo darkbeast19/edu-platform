@@ -1,6 +1,8 @@
 // AI Question Generation API Route
 // Set GEMINI_API_KEY in your .env.local to enable AI generation.
 
+export const runtime = 'edge';
+
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request) {
@@ -98,9 +100,9 @@ export async function POST(request) {
                  };
               });
 
-              // Return if we got enough questions purely from DB! (Or just return what we have)
-              if (dbQuestions.length > 0) {
-                 return Response.json({ questions: dbQuestions, source: "database" });
+              // We keep dbQuestions, but if it's less than numQuestions, we will supplement it below
+              if (dbQuestions.length >= numQuestions) {
+                 return Response.json({ questions: dbQuestions.slice(0, numQuestions), source: "database" });
               }
             }
           }
@@ -139,7 +141,7 @@ RULES:
 ]
 
 - "correct" must be an integer 0-3 (index of the correct option in the options array).
-- Generate all ${numQuestions} unique questions.`;
+- Generate exactly ${numQuestions - dbQuestions.length} unique questions.`;
 
         const result = await model.generateContent(prompt);
         let rawText = result.response.text().trim();
@@ -160,7 +162,13 @@ RULES:
         const aiQuestions = JSON.parse(rawText);
 
         if (Array.isArray(aiQuestions) && aiQuestions.length > 0) {
-          return Response.json({ questions: aiQuestions, source: "ai" });
+          // Adjust IDs and append to dbQuestions
+          const combined = [...dbQuestions];
+          for (const aiQ of aiQuestions) {
+            if (combined.length >= numQuestions) break;
+            combined.push({ ...aiQ, id: combined.length + 1 });
+          }
+          return Response.json({ questions: combined, source: dbQuestions.length > 0 ? "db_and_ai" : "ai" });
         }
       } catch (aiError) {
         console.error("AI generation failed:", aiError.message);
@@ -169,8 +177,20 @@ RULES:
     }
 
     // ── 3. Fallback: generate questions from static bank ────────────────────
-    const fallbackBank = buildFallbackQuestions(topic, numQuestions);
-    return Response.json({ questions: fallbackBank, source: "fallback" });
+    const fallbackBank = buildFallbackQuestions(topic, numQuestions - dbQuestions.length);
+    const combinedFallback = [...dbQuestions];
+    for (const fQ of fallbackBank) {
+       if (combinedFallback.length >= numQuestions) break;
+       combinedFallback.push({ ...fQ, id: combinedFallback.length + 1 });
+    }
+    
+    // As a last absolute resort, if we STILL don't have enough (because fallback bank is small), duplicate them
+    while (combinedFallback.length > 0 && combinedFallback.length < numQuestions) {
+       const clone = combinedFallback[combinedFallback.length % combinedFallback.length];
+       combinedFallback.push({ ...clone, id: combinedFallback.length + 1 });
+    }
+
+    return Response.json({ questions: combinedFallback, source: "fallback" });
 
   } catch (error) {
     console.error("Quiz generation error:", error);
@@ -304,7 +324,7 @@ function buildFallbackQuestions(topic, count) {
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
 
-  // NEVER repeat - return only as many unique questions as available
+  // In fallback, just return as many as we have; we pad in the caller
   const available = Math.min(count, shuffled.length);
   return shuffled.slice(0, available).map((q, i) => ({ ...q, id: i + 1 }));
 }
