@@ -124,12 +124,17 @@ function QuizEngineInner() {
     questions.forEach((q, i) => { if (selectedAnswers[i] === q.correct) correctCount++; });
   }
 
-  // ── Auto-translate when language switches to Hindi ──────────────────────
+  // ── Auto-translate when language is Hindi AND questions are loaded ────────
+  // Triggers on: (1) user switches to Hindi, (2) new questions load while already in Hindi
   useEffect(() => {
-    if (language !== "hi" || questions.length === 0 || isTranslating) return;
-    // Already have a fresh translation for current question set — skip
+    // Only run when Hindi is active and questions are available
+    if (language !== "hi" || questions.length === 0) return;
+    // Skip if we already have a valid translation for this exact question set
     if (translatedQuestionsMap["hi"] && translatedQuestionsMap["hi"].length === questions.length) return;
+    // Skip if already in progress
+    if (isTranslating) return;
 
+    let cancelled = false;
     const fetchTranslation = async () => {
       setIsTranslating(true);
       setTranslateError(false);
@@ -141,21 +146,22 @@ function QuizEngineInner() {
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        if (data.translated && data.translated.length > 0) {
+        if (!cancelled && data.translated && data.translated.length > 0) {
           setTranslatedQuestionsMap(prev => ({ ...prev, hi: data.translated }));
-        } else {
+        } else if (!cancelled) {
           setTranslateError(true);
         }
       } catch (err) {
         console.error("Translation Failed:", err);
-        setTranslateError(true);
+        if (!cancelled) setTranslateError(true);
       } finally {
-        setIsTranslating(false);
+        if (!cancelled) setIsTranslating(false);
       }
     };
     fetchTranslation();
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [language, questions]);
+  }, [language, questions, translatedQuestionsMap]);
 
   // ── Start Quiz ────────────────────────────────────────────────────────────
   const handleStartQuiz = async () => {

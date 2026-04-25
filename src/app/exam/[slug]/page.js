@@ -9,6 +9,28 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
+import { useLanguage } from "@/context/LanguageContext";
+
+// Subject name translations
+const SUBJECT_NAMES_HI = {
+  "Quantitative Aptitude": "मात्रात्मक योग्यता",
+  "General Reasoning": "सामान्य तर्कशक्ति",
+  "English Language": "अंग्रेजी भाषा",
+  "General Knowledge": "सामान्य ज्ञान",
+  "Numerical Ability": "संख्यात्मक योग्यता",
+  "English": "अंग्रेजी",
+  "Mathematics": "गणित",
+  "General Intelligence": "सामान्य बुद्धिमत्ता",
+  "General Awareness": "सामान्य जागरूकता",
+  "General Science": "सामान्य विज्ञान",
+  "Reasoning Ability": "तर्कशक्ति",
+  "General/Economy/Banking Awareness": "सामान्य/अर्थव्यवस्था/बैंकिंग जागरूकता",
+  "General/Financial Awareness": "सामान्य/वित्तीय जागरूकता",
+  "Computer Awareness": "कंप्यूटर जागरूकता",
+  "General Ability Test": "सामान्य योग्यता परीक्षा",
+};
+
+const subjectName = (name, lang) => (lang === 'hi' && SUBJECT_NAMES_HI[name]) ? SUBJECT_NAMES_HI[name] : name;
 
 // Exam data — slug → details
 const EXAM_DATA = {
@@ -111,6 +133,7 @@ const DIFFICULTY_BADGE = {
 
 export default function ExamDetailPage({ params }) {
   const router = useRouter();
+  const { language } = useLanguage();
   // Next.js 15: params is a Promise — must unwrap with React.use()
   const resolvedParams = React.use(params);
   const slug = resolvedParams.slug;
@@ -161,7 +184,7 @@ export default function ExamDetailPage({ params }) {
         <Navbar />
         <div className="max-w-4xl mx-auto px-4 py-12">
           <Link href="/exams" className="text-slate-400 hover:text-white text-sm flex items-center gap-2 mb-8 transition">
-            <ArrowLeft className="w-4 h-4" /> Back to All Exams
+            <ArrowLeft className="w-4 h-4" /> {language === 'hi' ? 'सभी परीक्षाओं पर वापस' : 'Back to All Exams'}
           </Link>
           <h1 className="text-3xl font-extrabold text-white mb-2">{categoryName} Exams</h1>
           <p className="text-slate-400 mb-10">Select an exam to browse its subjects and start practice.</p>
@@ -223,7 +246,7 @@ export default function ExamDetailPage({ params }) {
       <div className="max-w-4xl mx-auto px-4 py-10 w-full">
         {/* Breadcrumb */}
         <Link href="/exams" className="text-slate-400 hover:text-white text-sm flex items-center gap-2 mb-8 transition">
-          <ArrowLeft className="w-4 h-4" /> All Exams
+          <ArrowLeft className="w-4 h-4" /> {language === 'hi' ? 'सभी परीक्षाएं' : 'All Exams'}
         </Link>
 
         {/* Exam Header */}
@@ -244,16 +267,16 @@ export default function ExamDetailPage({ params }) {
             <motion.div key="select" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, x: -20 }}>
               <div className="flex items-center justify-between mb-5">
                 <h2 className="text-lg font-bold text-white">
-                  Select Subject{selectedSubjects.length > 1 ? "s" : ""}
+                  {language === 'hi' ? 'विषय चुनें' : `Select Subject${selectedSubjects.length > 1 ? 's' : ''}`}
                   {selectedSubjects.length > 0 && (
-                    <span className="ml-2 text-blue-400 text-sm font-medium">({selectedSubjects.length} selected)</span>
+                    <span className="ml-2 text-blue-400 text-sm font-medium">({selectedSubjects.length} {language === 'hi' ? 'चयनित' : 'selected'})</span>
                   )}
                 </h2>
                 <button
                   onClick={handleSelectAll}
                   className="text-xs font-bold text-blue-400 hover:text-blue-300 transition px-3 py-1.5 bg-blue-500/10 rounded-lg border border-blue-500/20"
                 >
-                  {allSelected ? "Deselect All" : "Select All"}
+                  {allSelected ? (language === 'hi' ? 'सभी हटाएं' : 'Deselect All') : (language === 'hi' ? 'सभी चुनें' : 'Select All')}
                 </button>
               </div>
 
@@ -286,9 +309,9 @@ export default function ExamDetailPage({ params }) {
                           <Icon className={`w-5 h-5 text-${subject.color}-400`} />
                         </div>
                         <div>
-                          <div className="font-bold text-white mb-1 text-sm pr-6">{subject.name}</div>
+                          <div className="font-bold text-white mb-1 text-sm pr-6">{subjectName(subject.name, language)}</div>
                           <div className="text-xs text-slate-400 leading-relaxed">{subject.description}</div>
-                          <div className="text-xs text-slate-500 mt-2">{subject.topics} topics</div>
+                          <div className="text-xs text-slate-500 mt-2">{subject.topics} {language === 'hi' ? 'उप-विषय' : 'topics'}</div>
                         </div>
                       </div>
                     </motion.button>
@@ -302,11 +325,11 @@ export default function ExamDetailPage({ params }) {
                   <div>
                     <div className="text-white font-bold text-sm">
                       {noneSelected
-                        ? "Select at least 1 subject"
-                        : `${selectedSubjects.length} subject${selectedSubjects.length > 1 ? "s" : ""} selected`}
+                        ? (language === 'hi' ? 'कम से कम 1 विषय चुनें' : 'Select at least 1 subject')
+                        : `${selectedSubjects.length} ${language === 'hi' ? 'विषय चयनित' : `subject${selectedSubjects.length > 1 ? 's' : ''} selected`}`}
                     </div>
                     <div className="text-slate-400 text-xs mt-0.5">
-                      {selectedSubjects.map(sl => exam.subjects.find(s => s.slug === sl)?.name).filter(Boolean).join(", ")}
+                      {selectedSubjects.map(sl => subjectName(exam.subjects.find(s => s.slug === sl)?.name || '', language)).filter(Boolean).join(", ")}
                     </div>
                   </div>
                   <button
@@ -314,7 +337,7 @@ export default function ExamDetailPage({ params }) {
                     disabled={noneSelected}
                     className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 hover:shadow-[0_0_20px_rgba(59,130,246,0.4)] transition-all disabled:opacity-40"
                   >
-                    Configure Quiz <ChevronRight className="w-4 h-4" />
+                    {language === 'hi' ? 'क्विज़ कॉन्फ़िगर करें' : 'Configure Quiz'} <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
               </div>
@@ -328,13 +351,13 @@ export default function ExamDetailPage({ params }) {
                 onClick={() => setStep("select")}
                 className="text-slate-400 hover:text-white text-sm flex items-center gap-2 mb-8 transition"
               >
-                <ArrowLeft className="w-4 h-4" /> Back to Subject Selection
+                <ArrowLeft className="w-4 h-4" /> {language === 'hi' ? 'विषय चयन पर वापस जाएं' : 'Back to Subject Selection'}
               </button>
 
-              <h2 className="text-2xl font-bold text-white mb-2">Configure Your Quiz</h2>
+              <h2 className="text-2xl font-bold text-white mb-2">{language === 'hi' ? 'क्विज़ कॉन्फ़िगर करें' : 'Configure Your Quiz'}</h2>
               <p className="text-slate-400 text-sm mb-8">
-                Questions will be mixed from: <span className="text-blue-400 font-semibold">
-                  {selectedSubjects.map(sl => exam.subjects.find(s => s.slug === sl)?.name).filter(Boolean).join(", ")}
+                {language === 'hi' ? 'इन विषयों के प्रश्न शामिल होंगे:' : 'Questions will be mixed from:'} <span className="text-blue-400 font-semibold">
+                  {selectedSubjects.map(sl => subjectName(exam.subjects.find(s => s.slug === sl)?.name || '', language)).filter(Boolean).join(", ")}
                 </span>
               </p>
 
@@ -356,7 +379,7 @@ export default function ExamDetailPage({ params }) {
 
                 {/* Question Count */}
                 <div>
-                  <label className="text-slate-400 text-xs font-bold tracking-wider mb-4 block uppercase">Number of Questions</label>
+                  <label className="text-slate-400 text-xs font-bold tracking-wider mb-4 block uppercase">{language === 'hi' ? 'प्रश्नों की संख्या' : 'Number of Questions'}</label>
                   <div className="grid grid-cols-4 gap-3">
                     {[10, 20, 30, 50].map(num => (
                       <button
@@ -376,13 +399,13 @@ export default function ExamDetailPage({ params }) {
 
                 {/* Difficulty */}
                 <div>
-                  <label className="text-slate-400 text-xs font-bold tracking-wider mb-4 block uppercase">Difficulty Level</label>
+                  <label className="text-slate-400 text-xs font-bold tracking-wider mb-4 block uppercase">{language === 'hi' ? 'कठिनाई स्तर' : 'Difficulty Level'}</label>
                   <div className="grid grid-cols-3 gap-3">
                     {[
-                      { label: "Beginner", emoji: "🟢" },
-                      { label: "Intermediate", emoji: "🟡" },
-                      { label: "Hard Mode", emoji: "🔴" },
-                    ].map(({ label, emoji }) => (
+                      { label: "Beginner",     labelHi: "शुरुआती", emoji: "🟢" },
+                      { label: "Intermediate", labelHi: "मध्यम",   emoji: "🟡" },
+                      { label: "Hard Mode",    labelHi: "कठिन",    emoji: "🔴" },
+                    ].map(({ label, labelHi, emoji }) => (
                       <button
                         key={label}
                         onClick={() => setConfigDifficulty(label)}
@@ -392,7 +415,7 @@ export default function ExamDetailPage({ params }) {
                             : "bg-[#0a0a0f] border-white/10 text-slate-400 hover:border-slate-500"
                         }`}
                       >
-                        {emoji} {label}
+                        {emoji} {language === 'hi' ? labelHi : label}
                       </button>
                     ))}
                   </div>
@@ -411,7 +434,7 @@ export default function ExamDetailPage({ params }) {
                 className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 rounded-2xl font-bold text-lg flex justify-center items-center gap-3 hover:shadow-[0_0_30px_rgba(59,130,246,0.4)] hover:-translate-y-0.5 transition-all"
               >
                 <PlayCircle className="w-6 h-6" />
-                Enter Arena — Start Quiz
+                {language === 'hi' ? 'अभ्यास शुरू करें' : 'Enter Arena — Start Quiz'}
               </button>
             </motion.div>
           )}
