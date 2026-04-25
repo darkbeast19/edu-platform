@@ -126,6 +126,50 @@ const TOPICS_BY_SUBJECT = {
   ],
 };
 
+const EXAM_NAMES_HI = {
+  "SSC CGL":       "SSC CGL",
+  "SSC CHSL":      "SSC CHSL",
+  "Railway NTPC":  "रेलवे NTPC",
+  "Railway Group D": "रेलवे ग्रुप D",
+  "SBI PO":        "SBI PO",
+  "IBPS Clerk":    "IBPS क्लर्क",
+  "SSC MTS":       "SSC MTS",
+  "NDA":           "NDA",
+};
+
+const EXAM_DESC_HI = {
+  "Staff Selection Commission — Combined Graduate Level": "कर्मचारी चयन आयोग — संयुक्त स्नातक स्तरीय",
+  "Combined Higher Secondary Level":                     "संयुक्त उच्चतर माध्यमिक स्तर",
+  "Non-Technical Popular Category":                      "गैर-तकनीकी लोकप्रिय श्रेणी",
+  "Level 1 Posts under Railway Recruitment":             "रेलवे भर्ती स्तर-1 पद",
+  "State Bank of India — Probationary Officer":          "भारतीय स्टेट बैंक — प्रोबेशनरी ऑफिसर",
+  "Institute of Banking Personnel Selection — Clerk":    "बैंकिंग कार्मिक चयन संस्थान — क्लर्क",
+  "Multi-Tasking Staff Selection":                       "बहु-कार्य कर्मचारी चयन",
+  "National Defence Academy Entrance":                   "राष्ट्रीय रक्षा अकादमी प्रवेश",
+  "Live Exam from Database":                             "डेटाबेस से लाइव परीक्षा",
+};
+
+const DIFFICULTY_HI = {
+  "Easy":          "आसान",
+  "Easy–Moderate":  "आसान–मध्यम",
+  "Moderate":      "मध्यम",
+  "Hard":          "कठिन",
+};
+
+const SUBJECT_TAG_HI = {
+  "Quant":             "गणित",
+  "Reasoning":         "तर्कशक्ति",
+  "English":           "अंग्रेजी",
+  "GK":                "सामान्य ज्ञान",
+  "Maths":             "गणित",
+  "GK & Current Affairs": "सामान्य ज्ञान और करंट अफेयर्स",
+  "Science":           "विज्ञान",
+  "Computer":          "कंप्यूटर",
+  "GAT":               "सामान्य योग्यता",
+  "Numerical Ability": "संख्यात्मक योग्यता",
+  "General":           "सामान्य",
+};
+
 const DIFFICULTY_COLOR = {
   Easy: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
   "Easy–Moderate": "text-blue-400 bg-blue-500/10 border-blue-500/20",
@@ -311,10 +355,10 @@ export default function ExamsPage() {
                       <div className="flex justify-between items-start mb-4">
                         <div>
                           <h3 className="font-bold text-white text-lg group-hover:text-blue-400 transition-colors">
-                            {exam.name}
+                            {language === 'hi' ? (EXAM_NAMES_HI[exam.name] || exam.name) : exam.name}
                           </h3>
                           <p className="text-slate-500 text-xs mt-1">
-                            {exam.description}
+                            {language === 'hi' ? (EXAM_DESC_HI[exam.description] || exam.description) : exam.description}
                           </p>
                         </div>
                         <span
@@ -322,7 +366,7 @@ export default function ExamsPage() {
                             DIFFICULTY_COLOR[exam.difficulty]
                           }`}
                         >
-                          {exam.difficulty}
+                          {language === 'hi' ? (DIFFICULTY_HI[exam.difficulty] || exam.difficulty) : exam.difficulty}
                         </span>
                       </div>
 
@@ -332,7 +376,7 @@ export default function ExamsPage() {
                             key={s}
                             className="text-xs font-medium text-slate-400 bg-white/5 px-2.5 py-1 rounded-lg"
                           >
-                            {s}
+                            {language === 'hi' ? (SUBJECT_TAG_HI[s] || s) : s}
                           </span>
                         ))}
                       </div>

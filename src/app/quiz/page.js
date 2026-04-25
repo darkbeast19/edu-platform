@@ -99,9 +99,10 @@ function QuizEngineInner() {
   const [translateError,         setTranslateError]         = useState(false);
   const [translatedQuestionsMap, setTranslatedQuestionsMap] = useState({});
   const [originalLanguage,       setOriginalLanguage]       = useState("en");
+  const [baseQuestions,          setBaseQuestions]          = useState([]); // always the API-returned version
 
-  // Timer mode state: null = no timer, number = seconds per question
-  const [configTimerMode,  setConfigTimerMode]  = useState(90); // 90s per question default
+  // Timer: null = no timer, otherwise total seconds
+  const [configTimerMode,  setConfigTimerMode]  = useState(1800); // 30 min default
 
   // Fetch user profile for XP saving
   useEffect(() => {
@@ -156,13 +157,13 @@ function QuizEngineInner() {
   }
 
   // ── Auto-translate when language changes ──────────────────────────────────
-  // API now returns Hindi questions directly, so this only triggers when
-  // the user toggles language mid-quiz (e.g. Hindi → English or back)
+  // baseQuestions = whatever language came from the API
+  // translatedQuestionsMap caches the other language version
   useEffect(() => {
-    if (questions.length === 0) return;
-    // Already have translation for this language?
-    if (translatedQuestionsMap[language] && translatedQuestionsMap[language].length === questions.length) return;
-    // If the questions are already in the right language (from API), skip
+    if (baseQuestions.length === 0) return;
+    // Do we already have this language cached?
+    if (translatedQuestionsMap[language] && translatedQuestionsMap[language].length === baseQuestions.length) return;
+    // No need to translate if current language matches what API returned
     if (language === originalLanguage) return;
     if (isTranslating) return;
 
@@ -171,10 +172,12 @@ function QuizEngineInner() {
       setIsTranslating(true);
       setTranslateError(false);
       try {
+        // Always translate FROM the base (API-returned) questions
+        const targetLang = language === "hi" ? "Hindi" : "English";
         const res = await fetch("/api/translate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ questions, targetLanguage: language === "hi" ? "Hindi" : "English" })
+          body: JSON.stringify({ questions: baseQuestions, targetLanguage: targetLang })
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
@@ -193,7 +196,7 @@ function QuizEngineInner() {
     fetchTranslation();
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [language, questions, translatedQuestionsMap]);
+  }, [language, baseQuestions, originalLanguage]);
 
   // ── Start Quiz ────────────────────────────────────────────────────────────
   const handleStartQuiz = async () => {
@@ -204,7 +207,7 @@ function QuizEngineInner() {
     setXpEarned(0);
     setIsSubmitted(false);
     setShowScoreboard(false);
-    setTimeLeft(configTimerMode === null ? 0 : configQCount * configTimerMode);
+    setTimeLeft(configTimerMode === null ? 0 : configTimerMode);
     // ★ Reset translation cache so Hindi re-fetches for the new question set
     setTranslatedQuestionsMap({});
     setTranslateError(false);
@@ -226,18 +229,21 @@ function QuizEngineInner() {
       const data = await res.json();
       if (data.questions && data.questions.length > 0) {
         setQuestions(data.questions);
+        setBaseQuestions(data.questions); // Store as base for toggle translation
         const fetchedLang = data.originalLanguage || currentLanguage;
         setOriginalLanguage(fetchedLang);
         setTranslatedQuestionsMap({ [fetchedLang]: data.questions });
       } else {
         const fallback = currentLanguage === "hi" ? MOCK_QUESTIONS_HI.slice(0, configQCount) : MOCK_QUESTIONS.slice(0, configQCount);
         setQuestions(fallback);
+        setBaseQuestions(fallback);
         setOriginalLanguage(currentLanguage);
         setTranslatedQuestionsMap({ [currentLanguage]: fallback });
       }
     } catch {
       const fallback = currentLanguage === "hi" ? MOCK_QUESTIONS_HI.slice(0, configQCount) : MOCK_QUESTIONS.slice(0, configQCount);
       setQuestions(fallback);
+      setBaseQuestions(fallback);
       setOriginalLanguage(currentLanguage);
       setTranslatedQuestionsMap({ [currentLanguage]: fallback });
     } finally {
@@ -386,15 +392,17 @@ function QuizEngineInner() {
               <label className="text-slate-400 text-xs font-bold tracking-wider mb-3 block uppercase">{language === 'en' ? 'Timer Mode' : 'टाइमर मोड'}</label>
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { label: language === 'en' ? '⏸ No Timer' : '⏸ कोई टाइमर नहीं', sublabel: language === 'en' ? 'Practice freely' : 'मुक्त अभ्यास', value: null, color: "emerald" },
-                  { label: language === 'en' ? '⚡ Quick (45s/Q)' : '⚡ तेज़ (45s/Q)', sublabel: language === 'en' ? 'Speed practice' : 'गति अभ्यास', value: 45, color: "yellow" },
-                  { label: language === 'en' ? '⏱ Standard (90s/Q)' : '⏱ सामान्य (90s/Q)', sublabel: language === 'en' ? 'SSC / Railway' : 'SSC / रेलवे', value: 90, color: "blue" },
-                  { label: language === 'en' ? '🎯 Exam (2min/Q)' : '🎯 परीक्षा (2min/Q)', sublabel: language === 'en' ? 'UPSC / Banking' : 'UPSC / बैंकिंग', value: 120, color: "purple" },
+                  { label: language === 'en' ? '⏸ No Timer'  : '⏸ कोई टाइमर नहीं', sublabel: language === 'en' ? 'Practice freely'   : 'मुक्त अभ्यास',       value: null,       color: "emerald" },
+                  { label: language === 'en' ? '⚡ 15 Minutes' : '⚡ 15 मिनट',        sublabel: language === 'en' ? 'Quick revision'    : 'त्वरित रिवीज़न',     value: 15 * 60,    color: "yellow"  },
+                  { label: language === 'en' ? '⏱ 30 Minutes' : '⏱ 30 मिनट',        sublabel: language === 'en' ? 'SSC / Railway'     : 'SSC / रेलवे',        value: 30 * 60,    color: "blue"    },
+                  { label: language === 'en' ? '🕐 45 Minutes' : '🕐 45 मिनट',        sublabel: language === 'en' ? 'Standard practice' : 'सामान्य अभ्यास',     value: 45 * 60,    color: "purple"  },
+                  { label: language === 'en' ? '🎯 1 Hour'    : '🎯 1 घंटा',         sublabel: language === 'en' ? 'Full mock test'    : 'पूर्ण मॉक टेस्ट',    value: 60 * 60,    color: "rose"    },
+                  { label: language === 'en' ? '🏆 2 Hours'   : '🏆 2 घंटे',         sublabel: language === 'en' ? 'UPSC / Banking'    : 'UPSC / बैंकिंग',      value: 120 * 60,   color: "orange"  },
                 ].map(({ label, sublabel, value, color }) => (
                   <button
                     key={String(value)}
                     onClick={() => setConfigTimerMode(value)}
-                    className={`py-3 px-3 rounded-xl font-bold transition-all border text-left ${
+                    className={`py-2.5 px-3 rounded-xl font-bold transition-all border text-left ${
                       configTimerMode === value
                         ? `bg-${color}-600/20 border-${color}-500 text-${color}-400`
                         : "bg-[#0a0a0f] border-white/10 text-slate-400 hover:border-slate-500"
@@ -407,11 +415,11 @@ function QuizEngineInner() {
               </div>
             </div>
 
-            {/* Time estimate */}
+            {/* Time display */}
             <div className="text-xs text-slate-500 text-center">
               {configTimerMode === null
                 ? (language === 'en' ? '⏸ No time limit — practice at your own pace' : '⏸ कोई समय सीमा नहीं — अपनी गति से अभ्यास करें')
-                : `⏱ ${language === 'en' ? 'Total time:' : 'कुल समय:'} ~${Math.ceil(configQCount * configTimerMode / 60)} ${language === 'en' ? 'minutes' : 'मिनट'}`
+                : `⏱ ${language === 'en' ? 'Total time:' : 'कुल समय:'} ${Math.floor(configTimerMode / 60)} ${language === 'en' ? 'minutes' : 'मिनट'} (${formatTime(configTimerMode)})`
               }
             </div>
 

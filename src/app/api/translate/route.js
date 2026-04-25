@@ -31,7 +31,10 @@ export async function POST(request) {
     for (let i = 0; i < questions.length; i += BATCH_SIZE) {
       const batch = questions.slice(i, i + BATCH_SIZE);
 
-      const prompt = `Translate these exam questions from English to ${targetLanguage}.
+      const isToHindi = targetLanguage === "Hindi";
+      const sourceLanguage = isToHindi ? "English" : "Hindi";
+
+      const prompt = `Translate these exam questions from ${sourceLanguage} to ${targetLanguage}.
 Return ONLY valid JSON array — no markdown, no backticks, no extra text.
 
 Input:
