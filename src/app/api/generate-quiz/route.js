@@ -1,7 +1,8 @@
 // AI Question Generation API Route
-// Set GEMINI_API_KEY in your .env.local to enable AI generation.
-// NOTE: Do NOT add `export const runtime = 'edge'` here — this route uses
-//       Supabase Server Client which requires the Node.js runtime.
+// ARCHITECTURE:
+//  - Hindi (hi): Skip DB entirely → Gemini generates ALL questions natively in Hindi (1 call, ~3-4s)
+//  - English (en): DB first → Gemini fills gaps → static fallback
+// This design eliminates translation timeouts completely.
 
 import { createClient } from "@/lib/supabase/server";
 
@@ -11,18 +12,84 @@ export async function POST(request) {
     const numQuestions = Math.min(Math.max(parseInt(count) || 10, 1), 50);
     const isHindi = language === "hi";
 
-    // Initialize Supabase Server Client (With Auth)
+    // ══════════════════════════════════════════════════════════════════════════
+    // HINDI PATH: Generate ALL questions natively in Hindi via Gemini (1 call)
+    // Bypasses DB entirely — no translation needed, no timeout risk.
+    // ══════════════════════════════════════════════════════════════════════════
+    if (isHindi) {
+      if (process.env.GEMINI_API_KEY) {
+        try {
+          const { GoogleGenerativeAI } = await import("@google/generative-ai");
+          const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+          const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+          const prompt = `आप भारतीय प्रतियोगी परीक्षाओं (SSC, Railway, Banking, UPSC) के विशेषज्ञ परीक्षा-निर्माता हैं।
+विषय: "${topic}" पर कठिनाई: "${difficulty}" के अनुसार ठीक ${numQuestions} बहुविकल्पीय प्रश्न बनाएं।
+
+महत्वपूर्ण नियम:
+- सभी प्रश्न, विकल्प, स्पष्टीकरण पूरी तरह HINDI (देवनागरी लिपि) में लिखें।
+- केवल संख्याएं, सूत्र, और गणितीय चिह्न अंग्रेजी में रह सकते हैं।
+- ONLY a valid JSON array return करें। कोई markdown, backticks, या extra text नहीं।
+
+प्रत्येक प्रश्न का format:
+[
+  {
+    "id": 1,
+    "topic": "${topic}",
+    "text": "प्रश्न का पूरा पाठ?",
+    "options": ["विकल्प A", "विकल्प B", "विकल्प C", "विकल्प D"],
+    "correct": 0,
+    "step_by_step": "चरण-दर-चरण हल",
+    "shortcut": "त्वरित शॉर्टकट ट्रिक",
+    "mistake_reason": "छात्र क्यों गलती करते हैं"
+  }
+]
+
+- "correct" एक integer 0-3 होना चाहिए (options array में सही उत्तर का index)।
+- सभी ${numQuestions} अद्वितीय प्रश्न बनाएं।`;
+
+          const result = await model.generateContent(prompt);
+          let rawText = result.response.text().trim()
+            .replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+
+          const start = rawText.indexOf("[");
+          const end = rawText.lastIndexOf("]");
+          if (start !== -1 && end !== -1) {
+            const parsed = JSON.parse(rawText.slice(start, end + 1));
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              // Ensure we have exactly numQuestions, pad with Hindi fallback if needed
+              const questions = parsed.slice(0, numQuestions).map((q, i) => ({ ...q, id: i + 1 }));
+              if (questions.length >= numQuestions) {
+                return Response.json({ questions, source: "ai_hindi", originalLanguage: "hi" });
+              }
+              // Pad with fallback if AI returned fewer than needed
+              const fallback = buildFallbackQuestions(topic, numQuestions - questions.length, true);
+              const combined = [...questions, ...fallback].slice(0, numQuestions).map((q, i) => ({ ...q, id: i + 1 }));
+              return Response.json({ questions: combined, source: "ai_hindi_padded", originalLanguage: "hi" });
+            }
+          }
+        } catch (aiErr) {
+          console.error("Hindi AI generation failed:", aiErr.message);
+        }
+      }
+
+      // Hindi AI failed → use static Hindi fallback bank
+      const hindiFallback = buildFallbackQuestions(topic, numQuestions, true);
+      return Response.json({ questions: hindiFallback, source: "fallback_hindi", originalLanguage: "hi" });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // ENGLISH PATH: DB first → Gemini fills gaps → static fallback
+    // ══════════════════════════════════════════════════════════════════════════
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     let dbQuestions = [];
 
-    // ── 1. Try Fetching from Supabase Database ─────────────────────────────
     if (topic && topic.length > 0) {
       try {
         const requestedTopics = topic.split(",").map(s => s.trim());
-        
-        // 1a. Find matching subjects
+
         const { data: matchedSubjects } = await supabase
           .from("subjects")
           .select("id, name")
@@ -30,8 +97,7 @@ export async function POST(request) {
 
         if (matchedSubjects && matchedSubjects.length > 0) {
           const subjectIds = matchedSubjects.map(s => s.id);
-          
-          // 1b. Find all topics under these subjects
+
           const { data: matchedTopics } = await supabase
             .from("topics")
             .select("id, name, subject_id")
@@ -40,7 +106,6 @@ export async function POST(request) {
           if (matchedTopics && matchedTopics.length > 0) {
             const topicIds = matchedTopics.map(t => t.id);
 
-            // 1c. Fetch past answered IDs to strictly prevent dupes
             let answeredIds = new Set();
             if (user) {
               const { data: pastAnswers } = await supabase
@@ -52,18 +117,15 @@ export async function POST(request) {
               }
             }
 
-            // 1d. Fetch real questions for these topics
             const { data: fetchedQuestions } = await supabase
               .from("questions")
               .select("*")
               .in("topic_id", topicIds)
-              .limit(1000); // Fetch generic pool
+              .limit(1000);
 
             if (fetchedQuestions && fetchedQuestions.length > 0) {
-              // Strictly filter out already answered questions
               let candidateQuestions = fetchedQuestions.filter(q => !answeredIds.has(q.id));
 
-              // Deduplicate by question text first (just in case)
               const seen = new Set();
               const unique = candidateQuestions.filter(q => {
                 const key = q.question_text?.trim().toLowerCase();
@@ -71,38 +133,38 @@ export async function POST(request) {
                 seen.add(key);
                 return true;
               });
-              
-              // Fisher-Yates proper shuffle
+
               for (let i = unique.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [unique[i], unique[j]] = [unique[j], unique[i]];
               }
-              const shuffled = unique;
-              const selected = shuffled.slice(0, numQuestions);
 
-              // Map to the frontend component schema
+              const selected = unique.slice(0, numQuestions);
+
               dbQuestions = selected.map((q, i) => {
-                 const topicRef = matchedTopics.find(t => t.id === q.topic_id);
-                 let correctIndex = 0;
-                 if (q.correct_option === "A") correctIndex = 0;
-                 if (q.correct_option === "B") correctIndex = 1;
-                 if (q.correct_option === "C") correctIndex = 2;
-                 if (q.correct_option === "D") correctIndex = 3;
+                const topicRef = matchedTopics.find(t => t.id === q.topic_id);
+                let correctIndex = 0;
+                if (q.correct_option === "A") correctIndex = 0;
+                if (q.correct_option === "B") correctIndex = 1;
+                if (q.correct_option === "C") correctIndex = 2;
+                if (q.correct_option === "D") correctIndex = 3;
 
-                 return {
-                   id: q.id || i + 1,
-                   topic: topicRef ? topicRef.name : topic,
-                   text: q.question_text,
-                   options: [q.option_a, q.option_b, q.option_c, q.option_d],
-                   correct: correctIndex,
-                   step_by_step: q.explanation || "Detailed solution is not available for this question.",
-                   shortcut: null,
-                   mistake_reason: null
-                 };
+                return {
+                  id: q.id || i + 1,
+                  topic: topicRef ? topicRef.name : topic,
+                  text: q.question_text,
+                  options: [q.option_a, q.option_b, q.option_c, q.option_d],
+                  correct: correctIndex,
+                  step_by_step: q.explanation || "Detailed solution is not available for this question.",
+                  shortcut: null,
+                  mistake_reason: null
+                };
               });
 
-              // We do not return immediately or translate here anymore.
-              // We will run DB translation and AI generation concurrently below.
+              // If DB has exactly enough questions, return immediately
+              if (dbQuestions.length >= numQuestions) {
+                return Response.json({ questions: dbQuestions.slice(0, numQuestions), source: "database", originalLanguage: "en" });
+              }
             }
           }
         }
@@ -111,53 +173,17 @@ export async function POST(request) {
       }
     }
 
-
-    // ── 2. Concurrent Execution: DB Translation & AI Generation ─────────────────
-    let finalDbQuestions = [...dbQuestions];
-    let finalAiQuestions = [];
-
+    // Fill remaining with Gemini (English)
     if (process.env.GEMINI_API_KEY) {
-      const promises = [];
+      try {
+        const { GoogleGenerativeAI } = await import("@google/generative-ai");
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-      // Promise 1: Translate DB questions if needed
-      if (isHindi && dbQuestions.length > 0) {
-        promises.push((async () => {
-          try {
-            const { GoogleGenerativeAI } = await import("@google/generative-ai");
-            const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-            const prompt = `Translate these exam questions from English to Hindi. Return ONLY valid JSON array. \n\nInput:\n${JSON.stringify(dbQuestions.slice(0, numQuestions))}\n\nRules:\n- Keep the exact same JSON structure.\n- Translate text, options, step_by_step, shortcut, mistake_reason, topic.\n- Output must start with [ and end with ]`;
-            const result = await model.generateContent(prompt);
-            let rawText = result.response.text().trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
-            const start = rawText.indexOf("[");
-            const end = rawText.lastIndexOf("]");
-            if (start !== -1 && end !== -1) {
-              const parsed = JSON.parse(rawText.slice(start, end + 1));
-              if (Array.isArray(parsed) && parsed.length > 0) {
-                finalDbQuestions = parsed;
-              }
-            }
-          } catch (err) {
-            console.error("DB Translation failed:", err);
-          }
-        })());
-      }
-
-      // Promise 2: Generate needed questions
-      const needed = numQuestions - dbQuestions.length;
-      if (needed > 0) {
-        promises.push((async () => {
-          try {
-            const { GoogleGenerativeAI } = await import("@google/generative-ai");
-            const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-            const langInstruction = isHindi
-              ? `IMPORTANT: Generate ALL text (question, options, step_by_step, shortcut, mistake_reason) in HINDI language (Devanagari script). Do NOT use English for any field except numbers and formulas.`
-              : `Generate in English.`;
-
-            const prompt = `You are an expert exam setter for Indian competitive exams (SSC, Railway, Banking).
+        const needed = numQuestions - dbQuestions.length;
+        const prompt = `You are an expert exam setter for Indian competitive exams (SSC, Railway, Banking).
 Generate exactly ${needed} multiple choice questions on the topic: "${topic}" at difficulty: "${difficulty}".
-${langInstruction}
+Generate in English.
 
 RULES:
 - Return ONLY a JSON array. No explanations, no markdown, no triple backticks.
@@ -179,52 +205,36 @@ RULES:
 - "correct" must be an integer 0-3 (index of the correct option in the options array).
 - Generate all ${needed} unique questions.`;
 
-            const result = await model.generateContent(prompt);
-            let rawText = result.response.text().trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
-            const start = rawText.indexOf("[");
-            const end = rawText.lastIndexOf("]");
-            if (start !== -1 && end !== -1) {
-              const parsed = JSON.parse(rawText.slice(start, end + 1));
-              if (Array.isArray(parsed)) finalAiQuestions = parsed;
+        const result = await model.generateContent(prompt);
+        let rawText = result.response.text().trim()
+          .replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+
+        const arrayStart = rawText.indexOf("[");
+        const arrayEnd = rawText.lastIndexOf("]");
+        if (arrayStart !== -1 && arrayEnd !== -1) {
+          const aiQuestions = JSON.parse(rawText.slice(arrayStart, arrayEnd + 1));
+          if (Array.isArray(aiQuestions) && aiQuestions.length > 0) {
+            const combined = [...dbQuestions];
+            for (const aiQ of aiQuestions) {
+              if (combined.length >= numQuestions) break;
+              combined.push({ ...aiQ, id: combined.length + 1 });
             }
-          } catch (err) {
-            console.error("AI generation failed:", err);
-          }
-        })());
-      }
-
-      // Wait for both promises to complete concurrently (prevents 10s timeout!)
-      await Promise.all(promises);
-
-      // Combine results
-      const combined = [...finalDbQuestions].slice(0, numQuestions);
-      for (const aiQ of finalAiQuestions) {
-        if (combined.length >= numQuestions) break;
-        combined.push({ ...aiQ, id: combined.length + 1 });
-      }
-
-      if (combined.length >= numQuestions) {
-        // Safe check: If we asked for Hindi, but DB translation failed (it returned original English), 
-        // we must tell the frontend it's "en" so the client-side translator takes over.
-        let langToReturn = language;
-        if (isHindi && dbQuestions.length > 0 && finalDbQuestions.length > 0) {
-          if (finalDbQuestions[0].text === dbQuestions[0].text) {
-            langToReturn = "en";
+            return Response.json({ questions: combined, source: dbQuestions.length > 0 ? "db_and_ai" : "ai", originalLanguage: "en" });
           }
         }
-        return Response.json({ questions: combined, source: dbQuestions.length > 0 ? "db_and_ai" : "ai", originalLanguage: langToReturn });
+      } catch (aiError) {
+        console.error("AI generation failed:", aiError.message);
       }
     }
 
-    // ── 3. Static fallback bank ─────────────────────────────────────────────
-    const fallbackBank = buildFallbackQuestions(topic, numQuestions, isHindi);
-    // Merge DB + fallback, padding if needed
+    // Static fallback (English)
+    const fallbackBank = buildFallbackQuestions(topic, numQuestions, false);
     const combined = [...dbQuestions];
     for (const fQ of fallbackBank) {
       if (combined.length >= numQuestions) break;
       combined.push({ ...fQ, id: combined.length + 1 });
     }
-    return Response.json({ questions: combined, source: "fallback", originalLanguage: language });
+    return Response.json({ questions: combined, source: "fallback", originalLanguage: "en" });
 
   } catch (error) {
     console.error("Quiz generation error:", error);
@@ -234,7 +244,6 @@ RULES:
 
 // ── Fallback question builder ─────────────────────────────────────────────
 function buildFallbackQuestions(topic, count, isHindi = false) {
-  // Hindi versions of fallback questions
   const BANK_HI = [
     {
       id: 1, topic: "अनुपात और समानुपात",
@@ -242,15 +251,15 @@ function buildFallbackQuestions(topic, count, isHindi = false) {
       options: ["8:12:15", "2:3:5", "8:15:12", "6:12:15"], correct: 0,
       step_by_step: "A:B को 4 से गुणा करें → 8:12। B:C को 3 से गुणा करें → 12:15। संयुक्त: 8:12:15",
       shortcut: "(2×4):(3×4):(3×5) = 8:12:15",
-      mistake_reason: "छात्र अनुपातों को सीधे जोड़ने की कोशिश करते हैं।"
+      mistake_reason: "छात्र अनुपातों को सीधे जोड़ने की कोशिश करते हैं।"
     },
     {
       id: 2, topic: "प्रतिशत",
-      text: "एक संख्या पहले 20% बढ़ाई जाती है, फिर 10% घटाई जाती है। शुद्ध परिवर्तन क्या होगा?",
+      text: "एक संख्या पहले 20% बढ़ाई जाती है, फिर 10% घटाई जाती है। शुद्ध परिवर्तन क्या होगा?",
       options: ["8% वृद्धि", "10% वृद्धि", "12% वृद्धि", "कोई परिवर्तन नहीं"], correct: 0,
       step_by_step: "100 → +20% → 120 → -10% → 108। शुद्ध परिवर्तन = +8%",
       shortcut: "शुद्ध% = 20 - 10 - (20×10)/100 = 8% वृद्धि",
-      mistake_reason: "20% और -10% को सीधे जोड़ना गलत है।"
+      mistake_reason: "20% और -10% को सीधे जोड़ना गलत है।"
     },
     {
       id: 3, topic: "समय और कार्य",
@@ -258,7 +267,7 @@ function buildFallbackQuestions(topic, count, isHindi = false) {
       options: ["5 दिन", "6 दिन", "8 दिन", "12 दिन"], correct: 1,
       step_by_step: "(10×15)/(10+15) = 150/25 = 6 दिन",
       shortcut: "सूत्र: (a×b)/(a+b)",
-      mistake_reason: "दरों को जोड़ने के बजाय दिनों को जोड़ देना।"
+      mistake_reason: "दरों को जोड़ने के बजाय दिनों को जोड़ देना।"
     },
     {
       id: 4, topic: "सामान्य ज्ञान",
@@ -273,8 +282,48 @@ function buildFallbackQuestions(topic, count, isHindi = false) {
       text: "'भारत की खोज' पुस्तक किसने लिखी?",
       options: ["महात्मा गांधी", "जवाहरलाल नेहरू", "सुभाष चंद्र बोस", "लाल बहादुर शास्त्री"], correct: 1,
       step_by_step: "जवाहरलाल नेहरू ने 1944 में 'भारत की खोज' लिखी।",
-      shortcut: "नेहरू → भारत की खोज। गांधी → सत्य के साथ मेरे प्रयोग।",
-      mistake_reason: "स्वतंत्रता नेताओं की पुस्तकों को अधिक ध्यान से पढ़ें।"
+      shortcut: "नेहरू → भारत की खोज।",
+      mistake_reason: "स्वतंत्रता नेताओं की पुस्तकों को ध्यान से पढ़ें।"
+    },
+    {
+      id: 6, topic: "सरल ब्याज",
+      text: "₹5000 पर 8% वार्षिक दर से 3 वर्ष का साधारण ब्याज कितना होगा?",
+      options: ["₹1000", "₹1200", "₹1500", "₹1800"], correct: 1,
+      step_by_step: "SI = (P×R×T)/100 = (5000×8×3)/100 = 1200",
+      shortcut: "5000 × 8% × 3 = ₹1200",
+      mistake_reason: "100 से भाग देना भूल जाना।"
+    },
+    {
+      id: 7, topic: "औसत",
+      text: "5 संख्याओं का औसत 18 है। एक संख्या 28 से बदलने पर औसत 20 हो जाता है। बदली गई संख्या थी:",
+      options: ["8", "10", "18", "12"], correct: 2,
+      step_by_step: "(90 - x + 28)/5 = 20 → x = 18",
+      shortcut: "परिवर्तन = 2×5 = 10। पुरानी संख्या = 28 - 10 = 18",
+      mistake_reason: "कुल परिवर्तन की गणना में त्रुटि।"
+    },
+    {
+      id: 8, topic: "संख्या पद्धति",
+      text: "वह सबसे छोटी संख्या जो 4, 6, 8, 12 से विभाजित होने पर प्रत्येक बार 2 शेष बचे:",
+      options: ["24", "26", "48", "50"], correct: 1,
+      step_by_step: "LCM(4,6,8,12) = 24। अभीष्ट संख्या = 24 + 2 = 26",
+      shortcut: "LCM निकालें, फिर शेषफल जोड़ें।",
+      mistake_reason: "LCM में शेषफल जोड़ना भूल जाना।"
+    },
+    {
+      id: 9, topic: "लाभ और हानि",
+      text: "एक व्यापारी वस्तु को लागत से 30% अधिक पर अंकित करता है और 10% छूट देता है। लाभ% है:",
+      options: ["17%", "17.5%", "18%", "20%"], correct: 0,
+      step_by_step: "CP=100, MP=130, SP=130×0.9=117। लाभ = 17%",
+      shortcut: "(1+30/100)(1-10/100)-1 = 1.3×0.9-1 = 17%",
+      mistake_reason: "30%-10%=20% सीधे जोड़ना गलत है।"
+    },
+    {
+      id: 10, topic: "गति, समय और दूरी",
+      text: "एक ट्रेन 60 km/h की गति से 120 km की दूरी तय करती है। समय होगा:",
+      options: ["1 घंटा", "2 घंटे", "3 घंटे", "4 घंटे"], correct: 1,
+      step_by_step: "समय = दूरी / गति = 120/60 = 2 घंटे",
+      shortcut: "T = D/S",
+      mistake_reason: "गति और दूरी को आपस में गुणा करना।"
     },
   ];
 
@@ -296,31 +345,15 @@ function buildFallbackQuestions(topic, count, isHindi = false) {
       mistake_reason: "Arithmetic error in cross-multiplication gives x=9 instead of x=11."
     },
     {
-      id: 3, topic: "Ratio & Proportion",
-      text: "Rs. 1050 divided among A, B, C such that A's share = 2/5 of (B+C). A gets:",
-      options: ["Rs. 200", "Rs. 300", "Rs. 320", "Rs. 420"], correct: 1,
-      step_by_step: "A:(B+C) = 2:5. Total 7 parts = 1050. A = 2×150 = 300.",
-      shortcut: "A = (2/7) × 1050 = 300.",
-      mistake_reason: "Dividing 1050 by 2.5 instead of using ratio parts."
-    },
-    {
-      id: 4, topic: "Percentage",
+      id: 3, topic: "Percentage",
       text: "A number is increased by 20% and then decreased by 10%. The net change is:",
       options: ["8% increase", "10% increase", "12% increase", "No change"], correct: 0,
       step_by_step: "100 → +20% → 120 → -10% → 108. Net change = +8%.",
-      shortcut: "Net% = 20 - 10 - (20×10)/100 = 10 - 2 = 8% increase.",
+      shortcut: "Net% = 20 - 10 - (20×10)/100 = 8% increase.",
       mistake_reason: "Adding 20% and -10% to get 10% instead of using compound formula."
     },
     {
-      id: 5, topic: "Percentage",
-      text: "If price of an item rises by 25%, by what percent must consumption be reduced to keep expenditure the same?",
-      options: ["20%", "25%", "33.33%", "15%"], correct: 0,
-      step_by_step: "Reduction = [25/(100+25)] × 100 = 25/125 × 100 = 20%.",
-      shortcut: "Formula: r/(100+r) × 100 = 25/125 × 100 = 20%.",
-      mistake_reason: "Using 25% directly instead of the derived formula."
-    },
-    {
-      id: 6, topic: "Time & Work",
+      id: 4, topic: "Time & Work",
       text: "A can do a job in 10 days, B in 15 days. Together they finish in:",
       options: ["5 days", "6 days", "8 days", "12 days"], correct: 1,
       step_by_step: "A's rate = 1/10, B's rate = 1/15. Together = 1/10 + 1/15 = 5/30 = 1/6. So 6 days.",
@@ -328,15 +361,15 @@ function buildFallbackQuestions(topic, count, isHindi = false) {
       mistake_reason: "Adding days (10+15=25) instead of adding rates."
     },
     {
-      id: 7, topic: "Simple Interest",
+      id: 5, topic: "Simple Interest",
       text: "SI on Rs. 5000 at 8% per annum for 3 years is:",
       options: ["Rs. 1000", "Rs. 1200", "Rs. 1500", "Rs. 1800"], correct: 1,
-      step_by_step: "SI = (P×R×T)/100 = (5000×8×3)/100 = 120000/100 = 1200.",
-      shortcut: "5000 × 8% × 3 = 5000 × 0.24 = 1200.",
-      mistake_reason: "Confusing SI formula with CI formula or forgetting to divide by 100."
+      step_by_step: "SI = (P×R×T)/100 = (5000×8×3)/100 = 1200.",
+      shortcut: "5000 × 8% × 3 = 1200.",
+      mistake_reason: "Confusing SI formula with CI or forgetting to divide by 100."
     },
     {
-      id: 8, topic: "Average",
+      id: 6, topic: "Average",
       text: "Average of 5 numbers is 18. If one number is replaced by 28, average becomes 20. The replaced number was:",
       options: ["8", "10", "18", "12"], correct: 2,
       step_by_step: "(90 - x + 28)/5 = 20 → 118 - x = 100 → x = 18.",
@@ -344,15 +377,15 @@ function buildFallbackQuestions(topic, count, isHindi = false) {
       mistake_reason: "Forgetting to multiply average change by n to get total change."
     },
     {
-      id: 9, topic: "Profit & Loss",
+      id: 7, topic: "Profit & Loss",
       text: "A trader marks goods 30% above cost and allows 10% discount. His profit %:",
       options: ["17%", "17.5%", "18%", "20%"], correct: 0,
       step_by_step: "CP = 100. MP = 130. SP = 130 × 0.9 = 117. Profit = 17%.",
-      shortcut: "Profit% = (1+m/100)(1-d/100) - 1 = 1.3×0.9 - 1 = 0.17 = 17%.",
+      shortcut: "(1+0.3)(1-0.1) - 1 = 1.3×0.9 - 1 = 0.17 = 17%.",
       mistake_reason: "Calculating 30% - 10% = 20% profit directly, ignoring compound effect."
     },
     {
-      id: 10, topic: "Number System",
+      id: 8, topic: "Number System",
       text: "What is the smallest number which when divided by 4, 6, 8, 12 leaves remainder 2 each time?",
       options: ["24", "26", "48", "50"], correct: 1,
       step_by_step: "LCM(4,6,8,12) = 24. Required number = 24 + 2 = 26.",
@@ -360,7 +393,7 @@ function buildFallbackQuestions(topic, count, isHindi = false) {
       mistake_reason: "Forgetting to add the remainder to the LCM."
     },
     {
-      id: 11, topic: "General Knowledge",
+      id: 9, topic: "General Knowledge",
       text: "Which article of the Indian Constitution abolishes untouchability?",
       options: ["Article 14", "Article 17", "Article 21", "Article 32"], correct: 1,
       step_by_step: "Article 17 abolishes untouchability and forbids its practice in any form.",
@@ -368,7 +401,7 @@ function buildFallbackQuestions(topic, count, isHindi = false) {
       mistake_reason: "Confusing with Article 14 (Equality before Law) or Article 21 (Right to Life)."
     },
     {
-      id: 12, topic: "General Knowledge",
+      id: 10, topic: "General Knowledge",
       text: "The 'Discovery of India' was written by:",
       options: ["Mahatma Gandhi", "Jawaharlal Nehru", "Subhas Chandra Bose", "Lal Bahadur Shastri"], correct: 1,
       step_by_step: "Jawaharlal Nehru wrote 'Discovery of India' while imprisoned at Ahmednagar Fort (1944).",
@@ -377,42 +410,17 @@ function buildFallbackQuestions(topic, count, isHindi = false) {
     },
   ];
 
-  // Strict topic filtering
+  const bank = isHindi ? BANK_HI : BANK;
   const topicLower = (topic || "").toLowerCase();
 
-  // ─── USE HINDI BANK WHEN REQUESTED ────────────────────────────────────────
-  if (isHindi) {
-    let hiPool = BANK_HI.filter(q => q.topic.toLowerCase().includes(topicLower) || topicLower.includes(q.topic.toLowerCase().split(" ")[0]));
-    if (hiPool.length === 0) hiPool = BANK_HI;
-    const hiShuffled = [...hiPool];
-    for (let i = hiShuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [hiShuffled[i], hiShuffled[j]] = [hiShuffled[j], hiShuffled[i]];
-    }
-    return hiShuffled.slice(0, Math.min(count, hiShuffled.length)).map((q, i) => ({ ...q, id: i + 1 }));
-  }
-  // ──────────────────────────────────────────────────────────────────────────
+  let pool = bank.filter(q => q.topic.toLowerCase().includes(topicLower) || topicLower.includes(q.topic.toLowerCase().split(" ")[0]));
+  if (pool.length === 0) pool = bank;
 
-  let pool = BANK.filter(q => q.topic.toLowerCase() === topicLower);
-  
-  if (pool.length === 0) {
-    pool = BANK.filter(q => 
-      q.topic.toLowerCase().includes(topicLower) || 
-      topicLower.includes(q.topic.toLowerCase().split("&")[0].trim()) ||
-      topicLower.includes(q.topic.toLowerCase().split(" ")[0])
-    );
-  }
-  
-  if (pool.length === 0) pool = BANK;
-
-  // Fisher-Yates shuffle
   const shuffled = [...pool];
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
 
-  // Return as many unique questions as available (caller handles padding)
-  const available = Math.min(count, shuffled.length);
-  return shuffled.slice(0, available).map((q, i) => ({ ...q, id: i + 1 }));
+  return shuffled.slice(0, Math.min(count, shuffled.length)).map((q, i) => ({ ...q, id: i + 1 }));
 }

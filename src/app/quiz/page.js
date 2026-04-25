@@ -100,6 +100,9 @@ function QuizEngineInner() {
   const [translatedQuestionsMap, setTranslatedQuestionsMap] = useState({});
   const [originalLanguage,       setOriginalLanguage]       = useState("en");
 
+  // Timer mode state: null = no timer, number = seconds per question
+  const [configTimerMode,  setConfigTimerMode]  = useState(90); // 90s per question default
+
   // Fetch user profile for XP saving
   useEffect(() => {
     async function fetchUser() {
@@ -116,16 +119,16 @@ function QuizEngineInner() {
     fetchUser();
   }, []);
 
-  // Timer
+  // Timer — only run if timer is enabled (configTimerMode !== null)
   useEffect(() => {
-    if (!isStarted || timeLeft <= 0 || isSubmitted) return;
+    if (!isStarted || configTimerMode === null || timeLeft <= 0 || isSubmitted) return;
     const timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
     return () => clearInterval(timer);
-  }, [timeLeft, isSubmitted, isStarted]);
+  }, [timeLeft, isSubmitted, isStarted, configTimerMode]);
 
-  // Auto-submit when time runs out
+  // Auto-submit when time runs out (only when timer is enabled)
   useEffect(() => {
-    if (isStarted && timeLeft === 0 && !isSubmitted && questions.length > 0) {
+    if (configTimerMode !== null && isStarted && timeLeft === 0 && !isSubmitted && questions.length > 0) {
       handleSubmitQuiz();
     }
   }, [timeLeft]);
@@ -153,15 +156,14 @@ function QuizEngineInner() {
   }
 
   // ── Auto-translate when language changes ──────────────────────────────────
+  // API now returns Hindi questions directly, so this only triggers when
+  // the user toggles language mid-quiz (e.g. Hindi → English or back)
   useEffect(() => {
     if (questions.length === 0) return;
-    // Need a translation if:
-    // (a) the user switched language mid-quiz, OR
-    // (b) questions were loaded in 'en' but user is currently in 'hi'
-    const needsTranslation = language !== originalLanguage ||
-      (language === "hi" && !translatedQuestionsMap["hi"]);
-    if (!needsTranslation) return;
+    // Already have translation for this language?
     if (translatedQuestionsMap[language] && translatedQuestionsMap[language].length === questions.length) return;
+    // If the questions are already in the right language (from API), skip
+    if (language === originalLanguage) return;
     if (isTranslating) return;
 
     let cancelled = false;
@@ -202,7 +204,7 @@ function QuizEngineInner() {
     setXpEarned(0);
     setIsSubmitted(false);
     setShowScoreboard(false);
-    setTimeLeft(configQCount * 90); // 90 sec per question
+    setTimeLeft(configTimerMode === null ? 0 : configQCount * configTimerMode);
     // ★ Reset translation cache so Hindi re-fetches for the new question set
     setTranslatedQuestionsMap({});
     setTranslateError(false);
@@ -379,9 +381,38 @@ function QuizEngineInner() {
               </div>
             </div>
 
+            {/* Timer Mode */}
+            <div>
+              <label className="text-slate-400 text-xs font-bold tracking-wider mb-3 block uppercase">{language === 'en' ? 'Timer Mode' : 'टाइमर मोड'}</label>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: language === 'en' ? '⏸ No Timer' : '⏸ कोई टाइमर नहीं', sublabel: language === 'en' ? 'Practice freely' : 'मुक्त अभ्यास', value: null, color: "emerald" },
+                  { label: language === 'en' ? '⚡ Quick (45s/Q)' : '⚡ तेज़ (45s/Q)', sublabel: language === 'en' ? 'Speed practice' : 'गति अभ्यास', value: 45, color: "yellow" },
+                  { label: language === 'en' ? '⏱ Standard (90s/Q)' : '⏱ सामान्य (90s/Q)', sublabel: language === 'en' ? 'SSC / Railway' : 'SSC / रेलवे', value: 90, color: "blue" },
+                  { label: language === 'en' ? '🎯 Exam (2min/Q)' : '🎯 परीक्षा (2min/Q)', sublabel: language === 'en' ? 'UPSC / Banking' : 'UPSC / बैंकिंग', value: 120, color: "purple" },
+                ].map(({ label, sublabel, value, color }) => (
+                  <button
+                    key={String(value)}
+                    onClick={() => setConfigTimerMode(value)}
+                    className={`py-3 px-3 rounded-xl font-bold transition-all border text-left ${
+                      configTimerMode === value
+                        ? `bg-${color}-600/20 border-${color}-500 text-${color}-400`
+                        : "bg-[#0a0a0f] border-white/10 text-slate-400 hover:border-slate-500"
+                    }`}
+                  >
+                    <div className="text-sm">{label}</div>
+                    <div className="text-xs opacity-60 font-normal mt-0.5">{sublabel}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Time estimate */}
             <div className="text-xs text-slate-500 text-center">
-              ⏱ {language === 'en' ? 'Estimated:' : 'अनुमानित:'} ~{Math.ceil(configQCount * 1.5)} {language === 'en' ? 'minutes' : 'मिनट'}
+              {configTimerMode === null
+                ? (language === 'en' ? '⏸ No time limit — practice at your own pace' : '⏸ कोई समय सीमा नहीं — अपनी गति से अभ्यास करें')
+                : `⏱ ${language === 'en' ? 'Total time:' : 'कुल समय:'} ~${Math.ceil(configQCount * configTimerMode / 60)} ${language === 'en' ? 'minutes' : 'मिनट'}`
+              }
             </div>
 
             <button
@@ -439,10 +470,10 @@ function QuizEngineInner() {
              )}
           </button>
 
-          <div className={`flex items-center gap-3 px-5 py-2 rounded-2xl border ${timeLeft < 60 ? "bg-red-500/10 border-red-500/30" : "bg-white/5 border-white/10"}`}>
-            <Clock className={`w-5 h-5 ${timeLeft < 60 ? "text-red-400 animate-pulse" : "text-blue-400"}`} />
-            <span className={`text-xl font-mono font-bold tracking-wider ${timeLeft < 60 ? "text-red-300" : "text-white"}`}>
-              {formatTime(timeLeft)}
+          <div className={`flex items-center gap-3 px-5 py-2 rounded-2xl border ${configTimerMode !== null && timeLeft < 60 ? "bg-red-500/10 border-red-500/30" : "bg-white/5 border-white/10"}`}>
+            <Clock className={`w-5 h-5 ${configTimerMode !== null && timeLeft < 60 ? "text-red-400 animate-pulse" : "text-blue-400"}`} />
+            <span className={`text-xl font-mono font-bold tracking-wider ${configTimerMode !== null && timeLeft < 60 ? "text-red-300" : "text-white"}`}>
+              {configTimerMode === null ? "∞" : formatTime(timeLeft)}
             </span>
           </div>
         </div>
