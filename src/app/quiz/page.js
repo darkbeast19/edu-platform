@@ -69,6 +69,7 @@ function QuizEngineInner() {
   // Bilingual State
   const { language, toggleLanguage } = useLanguage();
   const [isTranslating,          setIsTranslating]          = useState(false);
+  const [translateError,         setTranslateError]         = useState(false);
   const [translatedQuestionsMap, setTranslatedQuestionsMap] = useState({});
 
   // Fetch user profile for XP saving
@@ -123,30 +124,38 @@ function QuizEngineInner() {
     questions.forEach((q, i) => { if (selectedAnswers[i] === q.correct) correctCount++; });
   }
 
-  // ── Auto-translate when language changes ────────────────────────────────
+  // ── Auto-translate when language switches to Hindi ──────────────────────
   useEffect(() => {
+    if (language !== "hi" || questions.length === 0 || isTranslating) return;
+    // Already have a fresh translation for current question set — skip
+    if (translatedQuestionsMap["hi"] && translatedQuestionsMap["hi"].length === questions.length) return;
+
     const fetchTranslation = async () => {
-      if (language === "hi" && !translatedQuestionsMap["hi"] && questions.length > 0 && !isTranslating) {
-        setIsTranslating(true);
-        try {
-          const res = await fetch("/api/translate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ questions, targetLanguage: "Hindi" })
-          });
-          const data = await res.json();
-          if (data.translated && data.translated.length > 0) {
-            setTranslatedQuestionsMap(prev => ({ ...prev, hi: data.translated }));
-          }
-        } catch (err) {
-          console.error("Translation Failed", err);
-        } finally {
-          setIsTranslating(false);
+      setIsTranslating(true);
+      setTranslateError(false);
+      try {
+        const res = await fetch("/api/translate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ questions, targetLanguage: "Hindi" })
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (data.translated && data.translated.length > 0) {
+          setTranslatedQuestionsMap(prev => ({ ...prev, hi: data.translated }));
+        } else {
+          setTranslateError(true);
         }
+      } catch (err) {
+        console.error("Translation Failed:", err);
+        setTranslateError(true);
+      } finally {
+        setIsTranslating(false);
       }
     };
     fetchTranslation();
-  }, [language, questions, translatedQuestionsMap, isTranslating]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [language, questions]);
 
   // ── Start Quiz ────────────────────────────────────────────────────────────
   const handleStartQuiz = async () => {
@@ -158,6 +167,9 @@ function QuizEngineInner() {
     setIsSubmitted(false);
     setShowScoreboard(false);
     setTimeLeft(configQCount * 90); // 90 sec per question
+    // ★ Reset translation cache so Hindi re-fetches for the new question set
+    setTranslatedQuestionsMap({});
+    setTranslateError(false);
 
     // Determine topic string: join multiple subjects or use single topic
     const topicString = urlTopics
@@ -362,14 +374,20 @@ function QuizEngineInner() {
 
         <div className="flex items-center gap-4">
           <button
-             onClick={toggleLanguage}
+             onClick={() => { if (!isTranslating) { setTranslateError(false); toggleLanguage(); } }}
              disabled={isTranslating}
-             className="hidden sm:flex px-4 py-2 rounded-xl border border-white/20 text-xs font-bold text-white items-center gap-2 hover:bg-white/10 transition"
+             className={`hidden sm:flex px-4 py-2 rounded-xl border text-xs font-bold text-white items-center gap-2 transition ${
+               translateError
+                 ? 'border-red-500/50 bg-red-500/10 hover:bg-red-500/20'
+                 : 'border-white/20 hover:bg-white/10'
+             }`}
           >
              {isTranslating ? (
                <><div className="animate-spin w-4 h-4 border-2 border-white/20 border-t-white rounded-full"/> {language === 'en' ? 'Translating...' : 'अनुवाद हो रहा है...'}</>
+             ) : translateError ? (
+               <><Languages className="w-4 h-4 text-red-400" /> {language === 'en' ? 'Retry Hindi' : 'पुनः प्रयास'}</>
              ) : (
-               <><Languages className="w-4 h-4 text-blue-400" /> {language === "en" ? "Translate to Hindi" : "English Mode"}</>
+               <><Languages className="w-4 h-4 text-blue-400" /> {language === "en" ? "हिंदी में देखें" : "English Mode"}</>
              )}
           </button>
 

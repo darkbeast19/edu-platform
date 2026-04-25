@@ -1,7 +1,7 @@
 // AI Question Generation API Route
 // Set GEMINI_API_KEY in your .env.local to enable AI generation.
-
-export const runtime = 'edge';
+// NOTE: Do NOT add `export const runtime = 'edge'` here — this route uses
+//       Supabase Server Client which requires the Node.js runtime.
 
 import { createClient } from "@/lib/supabase/server";
 
@@ -100,7 +100,7 @@ export async function POST(request) {
                  };
               });
 
-              // We keep dbQuestions, but if it's less than numQuestions, we will supplement it below
+              // If DB gave us exactly what we need, return immediately
               if (dbQuestions.length >= numQuestions) {
                  return Response.json({ questions: dbQuestions.slice(0, numQuestions), source: "database" });
               }
@@ -120,8 +120,9 @@ export async function POST(request) {
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
+        const needed = numQuestions - dbQuestions.length;
         const prompt = `You are an expert exam setter for Indian competitive exams (SSC, Railway, Banking).
-Generate exactly ${numQuestions} multiple choice questions on the topic: "${topic}" at difficulty: "${difficulty}".
+Generate exactly ${needed} multiple choice questions on the topic: "${topic}" at difficulty: "${difficulty}".
 
 RULES:
 - Return ONLY a JSON array. No explanations, no markdown, no triple backticks.
@@ -141,7 +142,7 @@ RULES:
 ]
 
 - "correct" must be an integer 0-3 (index of the correct option in the options array).
-- Generate exactly ${numQuestions - dbQuestions.length} unique questions.`;
+- Generate all ${needed} unique questions.`;
 
         const result = await model.generateContent(prompt);
         let rawText = result.response.text().trim();
@@ -162,7 +163,7 @@ RULES:
         const aiQuestions = JSON.parse(rawText);
 
         if (Array.isArray(aiQuestions) && aiQuestions.length > 0) {
-          // Adjust IDs and append to dbQuestions
+          // Combine DB questions + AI questions
           const combined = [...dbQuestions];
           for (const aiQ of aiQuestions) {
             if (combined.length >= numQuestions) break;
@@ -176,21 +177,15 @@ RULES:
       }
     }
 
-    // ── 3. Fallback: generate questions from static bank ────────────────────
-    const fallbackBank = buildFallbackQuestions(topic, numQuestions - dbQuestions.length);
-    const combinedFallback = [...dbQuestions];
+    // ── 3. Static fallback bank ─────────────────────────────────────────────
+    const fallbackBank = buildFallbackQuestions(topic, numQuestions);
+    // Merge DB + fallback, padding if needed
+    const combined = [...dbQuestions];
     for (const fQ of fallbackBank) {
-       if (combinedFallback.length >= numQuestions) break;
-       combinedFallback.push({ ...fQ, id: combinedFallback.length + 1 });
+      if (combined.length >= numQuestions) break;
+      combined.push({ ...fQ, id: combined.length + 1 });
     }
-    
-    // As a last absolute resort, if we STILL don't have enough (because fallback bank is small), duplicate them
-    while (combinedFallback.length > 0 && combinedFallback.length < numQuestions) {
-       const clone = combinedFallback[combinedFallback.length % combinedFallback.length];
-       combinedFallback.push({ ...clone, id: combinedFallback.length + 1 });
-    }
-
-    return Response.json({ questions: combinedFallback, source: "fallback" });
+    return Response.json({ questions: combined, source: "fallback" });
 
   } catch (error) {
     console.error("Quiz generation error:", error);
@@ -245,7 +240,7 @@ function buildFallbackQuestions(topic, count) {
       id: 6, topic: "Time & Work",
       text: "A can do a job in 10 days, B in 15 days. Together they finish in:",
       options: ["5 days", "6 days", "8 days", "12 days"], correct: 1,
-      step_by_step: "A's rate = 1/10, B's rate = 1/15. Together = 1/10 + 1/15 = 3/30 + 2/30 = 5/30 = 1/6. So 6 days.",
+      step_by_step: "A's rate = 1/10, B's rate = 1/15. Together = 1/10 + 1/15 = 5/30 = 1/6. So 6 days.",
       shortcut: "(10×15)/(10+15) = 150/25 = 6 days.",
       mistake_reason: "Adding days (10+15=25) instead of adding rates."
     },
@@ -260,9 +255,9 @@ function buildFallbackQuestions(topic, count) {
     {
       id: 8, topic: "Average",
       text: "Average of 5 numbers is 18. If one number is replaced by 28, average becomes 20. The replaced number was:",
-      options: ["8", "10", "12", "18"], correct: 1,
-      step_by_step: "Original sum = 90. New sum = 100. Difference = 10. New number is 28. Old = 28 - 10 = 18? Wait: 100-90=10 means new adds 10 more than old. Old = 28-10 = 18. But that gives 10 from answer choices. Let's verify: replace x with 28. (90-x+28)/5=20 → 118-x=100 → x=18. Hmm answer is 18 but that's already the average. Correct: x=18.",
-      shortcut: "Change in total = (new avg - old avg) × n = 2×5 = 10. Old number = 28 - 10 = 18.",
+      options: ["8", "10", "18", "12"], correct: 2,
+      step_by_step: "(90 - x + 28)/5 = 20 → 118 - x = 100 → x = 18.",
+      shortcut: "Change in total = 2×5 = 10. Old number = 28 - 10 = 18.",
       mistake_reason: "Forgetting to multiply average change by n to get total change."
     },
     {
@@ -286,7 +281,7 @@ function buildFallbackQuestions(topic, count) {
       text: "Which article of the Indian Constitution abolishes untouchability?",
       options: ["Article 14", "Article 17", "Article 21", "Article 32"], correct: 1,
       step_by_step: "Article 17 abolishes untouchability and forbids its practice in any form.",
-      shortcut: "17 → Untouchability abolished. Remember: 17 = 1+7 = 8 = Finish untouchability.",
+      shortcut: "17 → Untouchability abolished.",
       mistake_reason: "Confusing with Article 14 (Equality before Law) or Article 21 (Right to Life)."
     },
     {
@@ -299,13 +294,11 @@ function buildFallbackQuestions(topic, count) {
     },
   ];
 
-  // Strict topic filtering - never mix subjects
+  // Strict topic filtering
   const topicLower = (topic || "").toLowerCase();
   
-  // Try exact topic match first
   let pool = BANK.filter(q => q.topic.toLowerCase() === topicLower);
   
-  // If no exact match, try partial match (e.g. "profit" matches "Profit & Loss")
   if (pool.length === 0) {
     pool = BANK.filter(q => 
       q.topic.toLowerCase().includes(topicLower) || 
@@ -314,17 +307,16 @@ function buildFallbackQuestions(topic, count) {
     );
   }
   
-  // Only use full BANK as last resort if absolutely no match
   if (pool.length === 0) pool = BANK;
 
-  // Fisher-Yates shuffle for true randomization
+  // Fisher-Yates shuffle
   const shuffled = [...pool];
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
 
-  // In fallback, just return as many as we have; we pad in the caller
+  // Return as many unique questions as available (caller handles padding)
   const available = Math.min(count, shuffled.length);
   return shuffled.slice(0, available).map((q, i) => ({ ...q, id: i + 1 }));
 }

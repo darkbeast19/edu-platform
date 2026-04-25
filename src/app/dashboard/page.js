@@ -19,14 +19,15 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import { useLanguage } from "@/context/LanguageContext";
+import { t } from "@/lib/translations";
 
 const getExamCategories = (lang) => [
-  { name: lang === 'en' ? "SSC Exams" : "SSC परीक्षा", count: lang === 'en' ? "12k+ Questions" : "12k+ प्रश्न", icon: Target, color: "blue", slug: "ssc" },
-  { name: lang === 'en' ? "Railway" : "रेलवे", count: lang === 'en' ? "8k+ Questions" : "8k+ प्रश्न", icon: TrendingUp, color: "purple", slug: "railway" },
-  { name: lang === 'en' ? "Banking" : "बैंकिंग", count: lang === 'en' ? "15k+ Questions" : "15k+ प्रश्न", icon: BookOpen, color: "indigo", slug: "banking" },
-  { name: lang === 'en' ? "State Govt" : "राज्य सरकार", count: lang === 'en' ? "5k+ Questions" : "5k+ प्रश्न", icon: BrainCircuit, color: "emerald", slug: "state-govt" },
-  { name: lang === 'en' ? "Defence" : "रक्षा", count: lang === 'en' ? "6k+ Questions" : "6k+ प्रश्न", icon: Zap, color: "orange", slug: "defence" },
-  { name: lang === 'en' ? "Teaching" : "शिक्षण", count: lang === 'en' ? "4k+ Questions" : "4k+ प्रश्न", icon: Users, color: "rose", slug: "teaching" },
+  { name: t('exam.ssc', lang),      count: lang === 'en' ? "12k+ Questions" : "12k+ प्रश्न", icon: Target,      color: "blue",    slug: "ssc"       },
+  { name: t('exam.railway', lang),  count: lang === 'en' ? "8k+ Questions"  : "8k+ प्रश्न",  icon: TrendingUp,  color: "purple",  slug: "railway"   },
+  { name: t('exam.banking', lang),  count: lang === 'en' ? "15k+ Questions" : "15k+ प्रश्न", icon: BookOpen,    color: "indigo",  slug: "banking"   },
+  { name: t('exam.stateGovt', lang),count: lang === 'en' ? "5k+ Questions"  : "5k+ प्रश्न",  icon: BrainCircuit,color: "emerald", slug: "state-govt" },
+  { name: t('exam.defence', lang),  count: lang === 'en' ? "6k+ Questions"  : "6k+ प्रश्न",  icon: Zap,         color: "orange",  slug: "defence"   },
+  { name: t('exam.teaching', lang), count: lang === 'en' ? "4k+ Questions"  : "4k+ प्रश्न",  icon: Users,       color: "rose",    slug: "teaching"  },
 ];
 
 export default function Dashboard() {
@@ -73,7 +74,7 @@ export default function Dashboard() {
   };
 
   if (loading) {
-    return <div className="min-h-screen bg-[#0a0a0f] text-slate-200 flex items-center justify-center font-bold text-xl">{language === 'en' ? 'Loading Arena...' : 'लोड हो रहा है...'}</div>;
+    return <div className="min-h-screen bg-[#0a0a0f] text-slate-200 flex items-center justify-center font-bold text-xl">{t('dashboard.loading', language)}</div>;
   }
 
   return (
@@ -84,10 +85,10 @@ export default function Dashboard() {
         {/* Welcome Section */}
         <div className="text-center mb-12">
           <h1 className="text-3xl md:text-5xl font-extrabold text-white mb-4">
-            {language === 'en' ? 'What do you want to learn today,' : 'आज आप क्या सीखना चाहते हैं,'} {profile?.full_name?.split(' ')[0] || profile?.username || (language === 'en' ? 'Student' : 'छात्र')}?
+            {t('dashboard.welcomePrefix', language)} {profile?.full_name?.split(' ')[0] || profile?.username || t('common.student', language)}?
           </h1>
           <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-            {language === 'en' ? 'Search for any topic, PYQ, or exam concept. Or dive right back into your active subjects.' : 'किसी भी विषय, PYQ या परीक्षा अवधारणा की खोज करें। या अपने सक्रिय विषयों पर वापस जाएं।'}
+            {t('dashboard.subheading', language)}
           </p>
         </div>
 
@@ -104,18 +105,18 @@ export default function Dashboard() {
               type="text" 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={language === 'en' ? "Search topics (e.g. Ratio and Proportion)..." : "विषय खोजें (उदा. अनुपात और समानुपात)..."}
+              placeholder={t('dashboard.searchPlaceholder', language)}
               className="bg-transparent border-none outline-none text-base sm:text-lg text-white w-full py-4 px-2 placeholder-slate-500"
             />
             <button type="submit" className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-xl font-bold text-sm tracking-wide hidden sm:block hover:shadow-[0_0_20px_rgba(59,130,246,0.4)] transition-all">
-              {language === 'en' ? 'Search' : 'खोजें'}
+              {t('common.search', language)}
             </button>
           </form>
         </div>
 
         {/* Quick Exam Categories */}
         <div className="mb-16">
-          <h2 className="text-xl font-bold text-white mb-6">{language === 'en' ? 'Popular Exam Categories' : 'लोकप्रिय परीक्षा श्रेणियां'}</h2>
+          <h2 className="text-xl font-bold text-white mb-6">{t('dashboard.popularExams', language)}</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {getExamCategories(language).map((cat, i) => {
               const Icon = cat.icon;
@@ -139,7 +140,7 @@ export default function Dashboard() {
           <div className="bg-[#12121a] border border-white/5 rounded-2xl p-6">
             <div className="flex justify-between items-center mb-5">
               <h3 className="font-bold text-lg text-white flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-indigo-400"/> {language === 'en' ? 'Continue Learning' : 'सीखना जारी रखें'}
+                <BookOpen className="w-5 h-5 text-indigo-400"/> {t('dashboard.continueLearning', language)}
               </h3>
             </div>
             <div className="space-y-3">
@@ -166,7 +167,7 @@ export default function Dashboard() {
             <div>
               <div className="flex justify-between items-center mb-5">
                 <h3 className="font-bold text-lg text-white flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5 text-emerald-400"/> {language === 'en' ? 'Your Progress' : 'आपकी प्रगति'}
+                  <BarChart3 className="w-5 h-5 text-emerald-400"/> {t('dashboard.yourProgress', language)}
                 </h3>
               </div>
               
@@ -174,18 +175,18 @@ export default function Dashboard() {
                 <div className="bg-white/5 rounded-xl p-4 border border-white/5">
                   <Flame className="w-5 h-5 text-orange-500 mb-2" />
                   <div className="text-2xl font-bold text-white leading-none">{profile?.streak_days || 0}</div>
-                  <div className="text-xs text-slate-400 mt-1">{language === 'en' ? 'Day Streak' : 'दिन की स्ट्रीक'}</div>
+                  <div className="text-xs text-slate-400 mt-1">{t('dashboard.dayStreak', language)}</div>
                 </div>
                 <div className="bg-white/5 rounded-xl p-4 border border-white/5">
                   <BookOpen className="w-5 h-5 text-blue-400 mb-2" />
                   <div className="text-2xl font-bold text-white leading-none">{solvedCount.toLocaleString()}</div>
-                  <div className="text-xs text-slate-400 mt-1">{language === 'en' ? 'Questions Solved' : 'हल किए गए प्रश्न'}</div>
+                  <div className="text-xs text-slate-400 mt-1">{t('dashboard.questionsSolved', language)}</div>
                 </div>
               </div>
             </div>
             
             <Link href="/dashboard/analytics" className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-white px-4 py-3 rounded-xl font-bold text-sm transition text-center flex items-center justify-center gap-2">
-              {language === 'en' ? 'View Detailed Analytics' : 'विस्तृत एनालिटिक्स देखें'} <ChevronRight className="w-4 h-4" />
+              {t('dashboard.viewAnalytics', language)} <ChevronRight className="w-4 h-4" />
             </Link>
 
           </div>

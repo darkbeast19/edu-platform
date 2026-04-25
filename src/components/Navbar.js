@@ -5,16 +5,17 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useLanguage } from "@/context/LanguageContext";
+import { t } from "@/lib/translations";
 import {
   BrainCircuit, Menu, X, Trophy, BookOpen, Heart, HelpCircle,
   User, LogIn, LogOut, LayoutDashboard, BarChart3, ChevronDown,
 } from "lucide-react";
 
 const getNavLinks = (lang) => [
-  { label: lang === 'en' ? "Exams" : "परीक्षाएं", href: "/exams", icon: BookOpen, color: "blue" },
-  { label: lang === 'en' ? "Leaderboard" : "लीडरबोर्ड", href: "/leaderboard", icon: Trophy, color: "yellow" },
-  { label: lang === 'en' ? "Testimonials" : "प्रशंसापत्र", href: "/testimonials", icon: Heart, color: "pink" },
-  { label: lang === 'en' ? "Support" : "सहायता", href: "/support", icon: HelpCircle, color: "blue" },
+  { label: t('nav.exams', lang),        href: "/exams",        icon: BookOpen,  color: "blue"   },
+  { label: t('nav.leaderboard', lang),  href: "/leaderboard", icon: Trophy,    color: "yellow" },
+  { label: t('nav.testimonials', lang), href: "/testimonials",icon: Heart,     color: "pink"   },
+  { label: t('nav.support', lang),      href: "/support",     icon: HelpCircle,color: "blue"   },
 ];
 
 export default function Navbar() {
@@ -135,27 +136,27 @@ export default function Navbar() {
                 {profileOpen && (
                   <div className="absolute right-0 top-full mt-3 w-56 bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-3xl shadow-[0px_20px_40px_rgba(44,47,48,0.1)] overflow-hidden z-50 animate-pop-in origin-top-right">
                     <div className="px-5 py-4 bg-[var(--bg-elevated)]/50">
-                      <p className="text-xs text-[var(--text-muted)] font-bold mb-1">{language === 'en' ? "Signed in as" : "के रूप में साइन इन हैं"}</p>
+                      <p className="text-xs text-[var(--text-muted)] font-bold mb-1">{t('nav.signedInAs', language)}</p>
                       <p className="text-sm text-[var(--text-primary)] font-extrabold truncate">{user.email}</p>
                     </div>
                     <div className="p-2 space-y-1">
                       <Link href="/dashboard" onClick={() => setProfileOpen(false)}
                         className="flex items-center gap-3 px-4 py-3 rounded-2xl text-[var(--text-secondary)] hover:text-[var(--accent-blue-dark)] hover:bg-[var(--accent-blue)]/10 text-sm font-bold transition-all">
-                        <LayoutDashboard className="w-5 h-5 text-[var(--accent-blue)]" /> {language === 'en' ? "Dashboard" : "डैशबोर्ड"}
+                        <LayoutDashboard className="w-5 h-5 text-[var(--accent-blue)]" /> {t('nav.dashboard', language)}
                       </Link>
                       <Link href="/profile" onClick={() => setProfileOpen(false)}
                         className="flex items-center gap-3 px-4 py-3 rounded-2xl text-[var(--text-secondary)] hover:text-[var(--accent-pink-dark)] hover:bg-[var(--accent-pink)]/10 text-sm font-bold transition-all">
-                        <User className="w-5 h-5 text-[var(--accent-pink)]" /> {language === 'en' ? "My Profile" : "मेरी प्रोफ़ाइल"}
+                        <User className="w-5 h-5 text-[var(--accent-pink)]" /> {t('nav.myProfile', language)}
                       </Link>
                       <Link href="/dashboard/analytics" onClick={() => setProfileOpen(false)}
                         className="flex items-center gap-3 px-4 py-3 rounded-2xl text-[var(--text-secondary)] hover:text-[var(--accent-yellow-dark)] hover:bg-[var(--accent-yellow)]/10 text-sm font-bold transition-all">
-                        <BarChart3 className="w-5 h-5 text-[var(--accent-yellow)]" /> {language === 'en' ? "Analytics" : "एनालिटिक्स"}
+                        <BarChart3 className="w-5 h-5 text-[var(--accent-yellow)]" /> {t('nav.analytics', language)}
                       </Link>
                     </div>
                     <div className="p-2 border-t border-[var(--border-subtle)]">
                       <button onClick={handleLogout}
                         className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-red-500 hover:text-red-700 hover:bg-red-50 text-sm font-bold transition-all">
-                        <LogOut className="w-5 h-5" /> {language === 'en' ? "Sign Out" : "साइन आउट"}
+                        <LogOut className="w-5 h-5" /> {t('common.signOut', language)}
                       </button>
                     </div>
                   </div>
@@ -164,7 +165,7 @@ export default function Navbar() {
             ) : (
               <Link href="/login"
                 className="clay-button-pink px-6 py-2.5 text-sm">
-                {language === 'en' ? "Sign In" : "साइन इन"}
+                {t('common.signIn', language)}
               </Link>
             )
           )}
@@ -221,21 +222,21 @@ export default function Navbar() {
                   </div>
                   <Link href="/dashboard" onClick={() => setMobileOpen(false)}
                     className="flex items-center gap-4 px-5 py-4 rounded-2xl text-[var(--text-secondary)] hover:bg-[var(--accent-blue)]/10 font-bold text-base transition-all">
-                    <LayoutDashboard className="w-6 h-6 text-[var(--accent-blue)]" /> {language === 'en' ? "Dashboard" : "डैशबोर्ड"}
+                    <LayoutDashboard className="w-6 h-6 text-[var(--accent-blue)]" /> {t('nav.dashboard', language)}
                   </Link>
                   <Link href="/profile" onClick={() => setMobileOpen(false)}
                     className="flex items-center gap-4 px-5 py-4 rounded-2xl text-[var(--text-secondary)] hover:bg-[var(--accent-pink)]/10 font-bold text-base transition-all">
-                    <User className="w-6 h-6 text-[var(--accent-pink)]" /> {language === 'en' ? "My Profile" : "मेरी प्रोफ़ाइल"}
+                    <User className="w-6 h-6 text-[var(--accent-pink)]" /> {t('nav.myProfile', language)}
                   </Link>
                   <button onClick={() => { setMobileOpen(false); handleLogout(); }}
                     className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-red-500 hover:bg-red-50 font-bold text-base transition-all">
-                    <LogOut className="w-6 h-6" /> {language === 'en' ? "Sign Out" : "साइन आउट"}
+                    <LogOut className="w-6 h-6" /> {t('common.signOut', language)}
                   </button>
                 </>
               ) : (
                 <Link href="/login" onClick={() => setMobileOpen(false)}
                   className="clay-button-pink w-full py-4 text-base flex justify-center mt-4">
-                  {language === 'en' ? "Sign In" : "साइन इन"}
+                  {t('common.signIn', language)}
                 </Link>
               )}
             </div>
