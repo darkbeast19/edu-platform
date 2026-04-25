@@ -31,7 +31,7 @@ export async function POST(request) {
     for (let i = 0; i < questions.length; i += BATCH_SIZE) {
       const batch = questions.slice(i, i + BATCH_SIZE);
 
-      const prompt = `Translate these exam questions from English to ${targetLanguage}.
+      const prompt = `Translate these exam questions into ${targetLanguage}.
 Return ONLY valid JSON array — no markdown, no backticks, no extra text.
 
 Input:
@@ -40,8 +40,9 @@ ${JSON.stringify(batch)}
 Rules:
 - Keep the exact same JSON structure and all keys unchanged.
 - Only translate these string fields: "text", "options" (array), "step_by_step", "shortcut", "mistake_reason", "topic".
+- If any field is ALREADY in ${targetLanguage}, leave it exactly as-is. Do not change it.
 - Keep numbers, formulas, IDs, and booleans exactly as-is.
-- "options" must remain a JSON array of translated strings.
+- "options" must remain a JSON array of strings.
 - Output must start with [ and end with ]`;
 
       try {
