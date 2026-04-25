@@ -18,14 +18,15 @@ import {
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
+import { useLanguage } from "@/context/LanguageContext";
 
-const EXAM_CATEGORIES = [
-  { name: "SSC Exams", count: "12k+ Questions", icon: Target, color: "blue", slug: "ssc" },
-  { name: "Railway", count: "8k+ Questions", icon: TrendingUp, color: "purple", slug: "railway" },
-  { name: "Banking", count: "15k+ Questions", icon: BookOpen, color: "indigo", slug: "banking" },
-  { name: "State Govt", count: "5k+ Questions", icon: BrainCircuit, color: "emerald", slug: "state-govt" },
-  { name: "Defence", count: "6k+ Questions", icon: Zap, color: "orange", slug: "defence" },
-  { name: "Teaching", count: "4k+ Questions", icon: Users, color: "rose", slug: "teaching" },
+const getExamCategories = (lang) => [
+  { name: lang === 'en' ? "SSC Exams" : "SSC परीक्षा", count: lang === 'en' ? "12k+ Questions" : "12k+ प्रश्न", icon: Target, color: "blue", slug: "ssc" },
+  { name: lang === 'en' ? "Railway" : "रेलवे", count: lang === 'en' ? "8k+ Questions" : "8k+ प्रश्न", icon: TrendingUp, color: "purple", slug: "railway" },
+  { name: lang === 'en' ? "Banking" : "बैंकिंग", count: lang === 'en' ? "15k+ Questions" : "15k+ प्रश्न", icon: BookOpen, color: "indigo", slug: "banking" },
+  { name: lang === 'en' ? "State Govt" : "राज्य सरकार", count: lang === 'en' ? "5k+ Questions" : "5k+ प्रश्न", icon: BrainCircuit, color: "emerald", slug: "state-govt" },
+  { name: lang === 'en' ? "Defence" : "रक्षा", count: lang === 'en' ? "6k+ Questions" : "6k+ प्रश्न", icon: Zap, color: "orange", slug: "defence" },
+  { name: lang === 'en' ? "Teaching" : "शिक्षण", count: lang === 'en' ? "4k+ Questions" : "4k+ प्रश्न", icon: Users, color: "rose", slug: "teaching" },
 ];
 
 export default function Dashboard() {
@@ -35,6 +36,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [solvedCount, setSolvedCount] = useState(0);
+  const { language } = useLanguage();
 
   useEffect(() => {
     async function loadData() {
@@ -71,7 +73,7 @@ export default function Dashboard() {
   };
 
   if (loading) {
-    return <div className="min-h-screen bg-[#0a0a0f] text-slate-200 flex items-center justify-center font-bold text-xl">Loading Arena...</div>;
+    return <div className="min-h-screen bg-[#0a0a0f] text-slate-200 flex items-center justify-center font-bold text-xl">{language === 'en' ? 'Loading Arena...' : 'लोड हो रहा है...'}</div>;
   }
 
   return (
@@ -82,10 +84,10 @@ export default function Dashboard() {
         {/* Welcome Section */}
         <div className="text-center mb-12">
           <h1 className="text-3xl md:text-5xl font-extrabold text-white mb-4">
-            What do you want to learn today, {profile?.full_name?.split(' ')[0] || profile?.username || 'Student'}?
+            {language === 'en' ? 'What do you want to learn today,' : 'आज आप क्या सीखना चाहते हैं,'} {profile?.full_name?.split(' ')[0] || profile?.username || (language === 'en' ? 'Student' : 'छात्र')}?
           </h1>
           <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-            Search for any topic, PYQ, or exam concept. Or dive right back into your active subjects.
+            {language === 'en' ? 'Search for any topic, PYQ, or exam concept. Or dive right back into your active subjects.' : 'किसी भी विषय, PYQ या परीक्षा अवधारणा की खोज करें। या अपने सक्रिय विषयों पर वापस जाएं।'}
           </p>
         </div>
 
@@ -102,20 +104,20 @@ export default function Dashboard() {
               type="text" 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search topics (e.g. Ratio and Proportion)..." 
+              placeholder={language === 'en' ? "Search topics (e.g. Ratio and Proportion)..." : "विषय खोजें (उदा. अनुपात और समानुपात)..."}
               className="bg-transparent border-none outline-none text-base sm:text-lg text-white w-full py-4 px-2 placeholder-slate-500"
             />
             <button type="submit" className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-xl font-bold text-sm tracking-wide hidden sm:block hover:shadow-[0_0_20px_rgba(59,130,246,0.4)] transition-all">
-              Search
+              {language === 'en' ? 'Search' : 'खोजें'}
             </button>
           </form>
         </div>
 
         {/* Quick Exam Categories */}
         <div className="mb-16">
-          <h2 className="text-xl font-bold text-white mb-6">Popular Exam Categories</h2>
+          <h2 className="text-xl font-bold text-white mb-6">{language === 'en' ? 'Popular Exam Categories' : 'लोकप्रिय परीक्षा श्रेणियां'}</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {EXAM_CATEGORIES.map((cat, i) => {
+            {getExamCategories(language).map((cat, i) => {
               const Icon = cat.icon;
               return (
                 <Link key={i} href={`/exam/${cat.slug}`}>
@@ -137,13 +139,13 @@ export default function Dashboard() {
           <div className="bg-[#12121a] border border-white/5 rounded-2xl p-6">
             <div className="flex justify-between items-center mb-5">
               <h3 className="font-bold text-lg text-white flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-indigo-400"/> Continue Learning
+                <BookOpen className="w-5 h-5 text-indigo-400"/> {language === 'en' ? 'Continue Learning' : 'सीखना जारी रखें'}
               </h3>
             </div>
             <div className="space-y-3">
               {[
-                { title: "SSC CGL Tier 1 Mock", desc: "Paused at Q12 / 100", progress: "12%" },
-                { title: "Percentage & Ratios", desc: "Chapter Test", progress: "85%" },
+                { title: language === 'en' ? "SSC CGL Tier 1 Mock" : "SSC CGL टियर 1 मॉक", desc: language === 'en' ? "Paused at Q12 / 100" : "Q12 / 100 पर रोका गया", progress: "12%" },
+                { title: language === 'en' ? "Percentage & Ratios" : "प्रतिशत और अनुपात", desc: language === 'en' ? "Chapter Test" : "अध्याय टेस्ट", progress: "85%" },
               ].map((item, i) => (
                 <Link href="/quiz" key={i}>
                   <div className="flex items-center justify-between p-4 bg-white/5 shadow-sm hover:bg-white/10 rounded-xl transition border border-white/5 group cursor-pointer mb-3">
@@ -164,7 +166,7 @@ export default function Dashboard() {
             <div>
               <div className="flex justify-between items-center mb-5">
                 <h3 className="font-bold text-lg text-white flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5 text-emerald-400"/> Your Progress
+                  <BarChart3 className="w-5 h-5 text-emerald-400"/> {language === 'en' ? 'Your Progress' : 'आपकी प्रगति'}
                 </h3>
               </div>
               
@@ -172,18 +174,18 @@ export default function Dashboard() {
                 <div className="bg-white/5 rounded-xl p-4 border border-white/5">
                   <Flame className="w-5 h-5 text-orange-500 mb-2" />
                   <div className="text-2xl font-bold text-white leading-none">{profile?.streak_days || 0}</div>
-                  <div className="text-xs text-slate-400 mt-1">Day Streak</div>
+                  <div className="text-xs text-slate-400 mt-1">{language === 'en' ? 'Day Streak' : 'दिन की स्ट्रीक'}</div>
                 </div>
                 <div className="bg-white/5 rounded-xl p-4 border border-white/5">
                   <BookOpen className="w-5 h-5 text-blue-400 mb-2" />
                   <div className="text-2xl font-bold text-white leading-none">{solvedCount.toLocaleString()}</div>
-                  <div className="text-xs text-slate-400 mt-1">Questions Solved</div>
+                  <div className="text-xs text-slate-400 mt-1">{language === 'en' ? 'Questions Solved' : 'हल किए गए प्रश्न'}</div>
                 </div>
               </div>
             </div>
             
             <Link href="/dashboard/analytics" className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-white px-4 py-3 rounded-xl font-bold text-sm transition text-center flex items-center justify-center gap-2">
-              View Detailed Analytics <ChevronRight className="w-4 h-4" />
+              {language === 'en' ? 'View Detailed Analytics' : 'विस्तृत एनालिटिक्स देखें'} <ChevronRight className="w-4 h-4" />
             </Link>
 
           </div>

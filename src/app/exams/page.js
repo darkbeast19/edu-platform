@@ -20,6 +20,7 @@ import {
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { useLanguage } from "@/context/LanguageContext";
 
 const ALL_EXAMS = [
   {
@@ -142,6 +143,7 @@ export default function ExamsPage() {
   const [dbSubjects, setDbSubjects] = React.useState([]);
   const [dbTopics, setDbTopics] = React.useState({});
   const [loading, setLoading] = React.useState(true);
+  const { language } = useLanguage();
 
   React.useEffect(() => {
     async function fetchTaxonomy() {
@@ -219,11 +221,11 @@ export default function ExamsPage() {
   });
 
   const categories = [
-    { label: "All", value: "all" },
+    { label: language === 'en' ? "All" : "सभी", value: "all" },
     { label: "SSC", value: "ssc" },
-    { label: "Railway", value: "railway" },
-    { label: "Banking", value: "banking" },
-    { label: "Defence", value: "defence" },
+    { label: language === 'en' ? "Railway" : "रेलवे", value: "railway" },
+    { label: language === 'en' ? "Banking" : "बैंकिंग", value: "banking" },
+    { label: language === 'en' ? "Defence" : "रक्षा", value: "defence" },
   ];
 
   return (
@@ -237,10 +239,10 @@ export default function ExamsPage() {
           animate={{ opacity: 1, y: 0 }}
         >
           <h1 className="text-3xl sm:text-4xl font-extrabold text-white mb-3">
-            Explore Exams & Topics
+            {language === 'en' ? 'Explore Exams & Topics' : 'परीक्षाएं और विषय एक्सप्लोर करें'}
           </h1>
           <p className="text-slate-400 max-w-xl text-sm sm:text-base mb-8">
-            Browse by exam or drill down into specific subjects and topics.
+            {language === 'en' ? 'Browse by exam or drill down into specific subjects and topics.' : 'परीक्षा के अनुसार ब्राउज़ करें या विशिष्ट विषयों और उप-विषयों में गहराई से जाएं।'}
           </p>
 
           {/* Search */}
@@ -250,7 +252,7 @@ export default function ExamsPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search exams, subjects, or topics..."
+              placeholder={language === 'en' ? "Search exams, subjects, or topics..." : "परीक्षाएं, विषय या उप-विषय खोजें..."}
               className="w-full pl-12 pr-4 py-3.5 bg-[#12121a] border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/50 transition-all text-sm"
             />
           </div>
@@ -267,7 +269,7 @@ export default function ExamsPage() {
                     : "text-slate-500 hover:text-slate-300"
                 }`}
               >
-                {tab}
+                {tab === 'exams' ? (language === 'en' ? 'Exams' : 'परीक्षाएं') : (language === 'en' ? 'Subjects' : 'विषय')}
               </button>
             ))}
           </div>
@@ -337,10 +339,10 @@ export default function ExamsPage() {
 
                       <div className="flex justify-between items-center">
                         <span className="text-xs text-slate-500 font-medium">
-                          {exam.questions} Questions
+                          {exam.questions} {language === 'en' ? 'Questions' : 'प्रश्न'}
                         </span>
                         <span className="text-xs font-bold text-blue-400 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          Start Practice <ArrowRight className="w-3.5 h-3.5" />
+                          {language === 'en' ? 'Start Practice' : 'अभ्यास शुरू करें'} <ArrowRight className="w-3.5 h-3.5" />
                         </span>
                       </div>
                     </div>
@@ -359,10 +361,10 @@ export default function ExamsPage() {
                   onClick={() => setSelectedSubject(null)}
                   className="text-sm text-slate-400 hover:text-white mb-6 flex items-center gap-1 transition-colors"
                 >
-                  ← Back to Subjects
+                  ← {language === 'en' ? 'Back to Subjects' : 'विषयों पर वापस जाएं'}
                 </button>
                 <h2 className="text-2xl font-bold text-white mb-6">
-                  {currentSubjects.find((s) => s.slug === selectedSubject)?.name} — Topics
+                  {currentSubjects.find((s) => s.slug === selectedSubject)?.name} — {language === 'en' ? 'Topics' : 'उप-विषय'}
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {(currentTopics[selectedSubject] || []).map((topic, i) => (
@@ -410,7 +412,7 @@ export default function ExamsPage() {
                         {subject.name}
                       </h3>
                       <p className="text-slate-500 text-sm">
-                        {subject.topics} topics available
+                        {subject.topics} {language === 'en' ? 'topics available' : 'उप-विषय उपलब्ध हैं'}
                       </p>
                     </motion.div>
                   );

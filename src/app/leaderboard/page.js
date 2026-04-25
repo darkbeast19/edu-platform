@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { useLanguage } from "@/context/LanguageContext";
 
 const LEADERBOARD_DATA = [
   { rank: 1, name: "Priya Sharma", username: "priya_cgl", xp: 48750, streak: 96, accuracy: 94.2, change: "up" },
@@ -32,14 +33,14 @@ const LEADERBOARD_DATA = [
   { rank: 12, name: "Arjun Roy", username: "arjun_r", xp: 28900, streak: 32, accuracy: 82.8, change: "same" },
 ];
 
-const MEDAL_STYLES = {
+const getMedalStyles = (lang) => ({
   1: {
     bg: "bg-gradient-to-br from-yellow-500/20 to-amber-500/10",
     border: "border-yellow-500/30",
     ring: "ring-yellow-500/30",
     textColor: "text-yellow-400",
     icon: Crown,
-    label: "CHAMPION",
+    label: lang === 'en' ? "CHAMPION" : "चैंपियन",
   },
   2: {
     bg: "bg-gradient-to-br from-slate-300/15 to-gray-400/5",
@@ -47,7 +48,7 @@ const MEDAL_STYLES = {
     ring: "ring-slate-400/20",
     textColor: "text-slate-300",
     icon: Medal,
-    label: "ELITE",
+    label: lang === 'en' ? "ELITE" : "विशिष्ट",
   },
   3: {
     bg: "bg-gradient-to-br from-amber-700/20 to-orange-800/10",
@@ -55,9 +56,9 @@ const MEDAL_STYLES = {
     ring: "ring-amber-700/20",
     textColor: "text-amber-500",
     icon: Medal,
-    label: "VETERAN",
+    label: lang === 'en' ? "VETERAN" : "अनुभवी",
   },
-};
+});
 
 function ChangeIndicator({ change }) {
   if (change === "up") return <ChevronUp className="w-4 h-4 text-emerald-400" />;
@@ -65,8 +66,8 @@ function ChangeIndicator({ change }) {
   return <Minus className="w-4 h-4 text-slate-600" />;
 }
 
-function TopThreeCard({ user, delay }) {
-  const style = MEDAL_STYLES[user.rank];
+function TopThreeCard({ user, delay, language }) {
+  const style = getMedalStyles(language)[user.rank];
   const Icon = style.icon;
   const sizeClass = user.rank === 1 ? "sm:col-span-1 sm:order-2" : user.rank === 2 ? "sm:order-1" : "sm:order-3";
 
@@ -127,6 +128,7 @@ function TopThreeCard({ user, delay }) {
 }
 
 export default function LeaderboardPage() {
+  const { language } = useLanguage();
   const [leaderboardData, setLeaderboardData] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
 
@@ -145,7 +147,7 @@ export default function LeaderboardPage() {
       if (data && data.length > 0) {
         setLeaderboardData(data.map((profile, index) => ({
           rank: index + 1,
-          name: profile.full_name || profile.username || 'Student',
+          name: profile.full_name || profile.username || (language === 'en' ? 'Student' : 'छात्र'),
           username: profile.username || `user_${profile.id.substring(0,4)}`,
           xp: profile.xp_total || 0,
           streak: profile.streak_days || 0,
@@ -163,7 +165,7 @@ export default function LeaderboardPage() {
       <div className="min-h-screen bg-[#0a0a0f] flex flex-col">
         <Navbar />
         <div className="flex-1 flex items-center justify-center">
-            <div className="text-slate-400 font-bold animate-pulse">Loading Global Rankings...</div>
+            <div className="text-slate-400 font-bold animate-pulse">{language === 'en' ? 'Loading Global Rankings...' : 'वैश्विक रैंकिंग लोड हो रही है...'}</div>
         </div>
       </div>
     );
@@ -185,20 +187,20 @@ export default function LeaderboardPage() {
         >
           <div className="inline-flex items-center gap-2 bg-yellow-500/10 border border-yellow-500/20 px-3 py-1 rounded-full mb-4">
             <Trophy className="w-4 h-4 text-yellow-500" />
-            <span className="text-xs font-bold text-yellow-300">GLOBAL RANKING</span>
+            <span className="text-xs font-bold text-yellow-300">{language === 'en' ? 'GLOBAL RANKING' : 'वैश्विक रैंकिंग'}</span>
           </div>
           <h1 className="text-3xl sm:text-4xl font-extrabold text-white mb-3">
-            Leaderboard
+            {language === 'en' ? 'Leaderboard' : 'लीडरबोर्ड'}
           </h1>
           <p className="text-slate-400 text-sm sm:text-base max-w-md mx-auto">
-            Top students who are crushing it daily. Climb the ranks by maintaining your streaks and earning XP.
+            {language === 'en' ? 'Top students who are crushing it daily. Climb the ranks by maintaining your streaks and earning XP.' : 'शीर्ष छात्र जो हर दिन शानदार प्रदर्शन कर रहे हैं। अपनी स्ट्रीक बनाए रखकर और एक्सपी (XP) अर्जित करके रैंक में ऊपर चढ़ें।'}
           </p>
         </motion.div>
 
         {/* Top 3 Podium */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5 mb-10 sm:mb-14">
           {topThree.map((user, i) => (
-            <TopThreeCard key={user.rank} user={user} delay={0.1 + i * 0.15} />
+            <TopThreeCard key={user.rank} user={user} delay={0.1 + i * 0.15} language={language} />
           ))}
         </div>
 
@@ -207,11 +209,11 @@ export default function LeaderboardPage() {
           {/* Header */}
           <div className="grid grid-cols-12 px-4 sm:px-6 py-3 text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-white/5">
             <div className="col-span-1 text-center">#</div>
-            <div className="col-span-5 sm:col-span-4">Student</div>
+            <div className="col-span-5 sm:col-span-4">{language === 'en' ? 'Student' : 'छात्र'}</div>
             <div className="col-span-2 text-right">XP</div>
             <div className="col-span-2 text-right hidden sm:block">Streak</div>
-            <div className="col-span-2 text-right hidden sm:block">Accuracy</div>
-            <div className="col-span-4 sm:col-span-1 text-right">Trend</div>
+            <div className="col-span-2 text-right hidden sm:block">{language === 'en' ? 'Accuracy' : 'सटीकता'}</div>
+            <div className="col-span-4 sm:col-span-1 text-right">{language === 'en' ? 'Trend' : 'प्रवृत्ति'}</div>
           </div>
 
           {/* Rows */}
