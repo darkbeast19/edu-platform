@@ -22,52 +22,50 @@ import {
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { useLanguage } from "@/context/LanguageContext";
 
-const EXAM_CATEGORIES = [
-  { name: "SSC Exams", count: "12k+ Questions", icon: Target, color: "blue", slug: "ssc" },
-  { name: "Railway", count: "8k+ Questions", icon: TrendingUp, color: "purple", slug: "railway" },
-  { name: "Banking", count: "15k+ Questions", icon: BookOpen, color: "indigo", slug: "banking" },
-  { name: "State Govt", count: "5k+ Questions", icon: BrainCircuit, color: "emerald", slug: "state-govt" },
-  { name: "Defence", count: "6k+ Questions", icon: Zap, color: "orange", slug: "defence" },
-  { name: "Teaching", count: "4k+ Questions", icon: Users, color: "rose", slug: "teaching" },
+const getExamCategories = (lang) => [
+  { name: lang === 'en' ? "SSC Exams" : "SSC परीक्षा", count: lang === 'en' ? "12k+ Questions" : "12k+ प्रश्न", icon: Target, slug: "ssc" },
+  { name: lang === 'en' ? "Railway" : "रेलवे", count: lang === 'en' ? "8k+ Questions" : "8k+ प्रश्न", icon: TrendingUp, slug: "railway" },
+  { name: lang === 'en' ? "Banking" : "बैंकिंग", count: lang === 'en' ? "15k+ Questions" : "15k+ प्रश्न", icon: BookOpen, slug: "banking" },
+  { name: lang === 'en' ? "State Govt" : "राज्य सरकार", count: lang === 'en' ? "5k+ Questions" : "5k+ प्रश्न", icon: BrainCircuit, slug: "state-govt" },
+  { name: lang === 'en' ? "Defence" : "रक्षा", count: lang === 'en' ? "6k+ Questions" : "6k+ प्रश्न", icon: Zap, slug: "defence" },
+  { name: lang === 'en' ? "Teaching" : "शिक्षण", count: lang === 'en' ? "4k+ Questions" : "4k+ प्रश्न", icon: Users, slug: "teaching" },
 ];
 
-const STATS = [
-  { value: "50,000+", label: "Active Students", icon: Users },
-  { value: "1,20,000+", label: "Questions", icon: BookOpen },
-  { value: "98%", label: "Satisfaction", icon: CheckCircle2 },
-  { value: "24/7", label: "Free Access", icon: Clock },
+const getStats = (lang) => [
+  { value: "50,000+", label: lang === 'en' ? "Happy Students" : "संतुष्ट छात्र", icon: Users },
+  { value: "1,20,000+", label: lang === 'en' ? "Fun Questions" : "मजेदार प्रश्न", icon: BookOpen },
+  { value: "98%", label: lang === 'en' ? "Satisfaction" : "संतुष्टि", icon: CheckCircle2 },
+  { value: "24/7", label: lang === 'en' ? "Free Access" : "मुफ्त पहुंच", icon: Clock },
 ];
 
-const FEATURES = [
+const getFeatures = (lang) => [
   {
-    title: "AI-Powered Weakness Detection",
-    desc: "Our system learns your weak areas and auto-generates custom quizzes to turn them into strengths.",
+    title: lang === 'en' ? "Smart Weakness Detection" : "कमजोरी की पहचान",
+    desc: lang === 'en' ? "Our AI learns your weak areas and auto-generates custom quizzes to help you grow faster!" : "हमारा AI आपकी कमजोरियों को सीखता है और आपको तेजी से बढ़ने में मदद करने के लिए कस्टम क्विज़ बनाता है!",
     icon: BrainCircuit,
-    gradient: "from-blue-500 to-cyan-500",
   },
   {
-    title: "Instant Shortcut Tricks",
-    desc: "Every question comes with exam-winning tricks and step-by-step solutions. Never waste time again.",
+    title: lang === 'en' ? "Instant Shortcut Tricks" : "त्वरित शॉर्टकट ट्रिक्स",
+    desc: lang === 'en' ? "Every question comes with magic tricks and step-by-step solutions. Never waste time again." : "हर प्रश्न जादुई ट्रिक्स और स्टेप-बाय-स्टेप समाधान के साथ आता है। अब कभी समय बर्बाद न करें।",
     icon: Zap,
-    gradient: "from-purple-500 to-pink-500",
   },
   {
-    title: "Gamified Streaks & XP",
-    desc: "Maintain daily streaks, earn XP, climb the leaderboard — preparation that actually feels exciting.",
+    title: lang === 'en' ? "Gamified Streaks & XP" : "गेमिफाइड स्ट्रीक्स और XP",
+    desc: lang === 'en' ? "Maintain daily streaks, earn XP, and climb the leaderboard — learning that actually feels like play." : "दैनिक स्ट्रीक बनाए रखें, XP अर्जित करें, और लीडरबोर्ड पर चढ़ें — ऐसा सीखना जो वास्तव में खेल जैसा लगे।",
     icon: Flame,
-    gradient: "from-orange-500 to-red-500",
   },
   {
-    title: "Real PYQ Papers",
-    desc: "Practice with actual previous year questions from SSC, Railway, Banking, and more — organized topic-wise.",
+    title: lang === 'en' ? "Real PYQ Papers" : "असली PYQ पेपर",
+    desc: lang === 'en' ? "Practice with actual previous year questions from SSC, Railway, Banking, and more." : "SSC, रेलवे, बैंकिंग और अन्य की वास्तविक पिछले वर्ष के प्रश्नों के साथ अभ्यास करें।",
     icon: Target,
-    gradient: "from-emerald-500 to-teal-500",
   },
 ];
 
 export default function Home() {
   const router = useRouter();
+  const { language } = useLanguage();
   const [searchQuery, setSearchQuery] = useState("");
 
   const handleSearch = (e) => {
@@ -80,82 +78,85 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] flex flex-col">
+    <div className="min-h-screen bg-[var(--bg-primary)] flex flex-col relative overflow-hidden">
       <Navbar />
 
-      {/* ── Hero Section ── */}
-      <section className="relative overflow-hidden">
-        {/* Background Glows */}
-        <div className="absolute top-[-200px] left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-blue-600/8 rounded-full blur-[120px] pointer-events-none" />
-        <div className="absolute top-[100px] right-[-200px] w-[500px] h-[500px] bg-purple-600/8 rounded-full blur-[100px] pointer-events-none" />
+      {/* Decorative High-Quality Light Green Blobs */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-[-10%] left-[-5%] w-96 h-96 bg-[var(--accent-green)]/10 rounded-full blur-[100px] animate-float-gentle"></div>
+        <div className="absolute top-[20%] right-[-5%] w-[30rem] h-[30rem] bg-[#a7f3d0]/20 rounded-full blur-[120px] animate-float-gentle" style={{ animationDelay: '2s' }}></div>
+      </div>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 pt-16 sm:pt-24 pb-16 text-center relative z-10">
+      {/* ── Hero Section ── */}
+      <section className="relative z-10 pt-24 pb-20 px-4 sm:px-8">
+        <div className="max-w-5xl mx-auto text-center">
           <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="max-w-4xl mx-auto"
+            initial={{ opacity: 0, y: 30, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
           >
-            {/* Badge */}
-            <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 px-4 py-1.5 rounded-full mb-8">
-              <Flame className="w-4 h-4 text-orange-500 animate-pulse" />
-              <span className="text-xs sm:text-sm font-bold text-blue-300">
-                Join 50,000+ top scorers practicing daily
-              </span>
+            {/* HD Premium Badge */}
+            <div className="badge-green mb-8 shadow-sm">
+              <Sparkles className="w-4 h-4" />
+              <span>{language === 'en' ? 'Join 50,000+ top scorers practicing daily!' : 'रोज़ाना अभ्यास करने वाले 50,000+ टॉपर्स से जुड़ें!'}</span>
             </div>
 
-            <h1 className="text-4xl sm:text-5xl md:text-7xl font-extrabold text-white tracking-tight leading-[1.1] mb-6">
-              Practice Any Topic{" "}
-              <br className="hidden md:block" />
-              <span className="gradient-text">Instantly & Free.</span>
+            <h1 className="heading-premium text-5xl sm:text-6xl md:text-7xl mb-6 leading-tight">
+              {language === 'en' ? (
+                <>Level Up Your Learning <br className="hidden md:block" />
+                <span className="text-gradient-green">Instantly & Free.</span></>
+              ) : (
+                <>अपनी शिक्षा को बेहतर बनाएं <br className="hidden md:block" />
+                <span className="text-gradient-green">तुरंत और मुफ्त।</span></>
+              )}
             </h1>
 
-            <p className="text-base sm:text-lg md:text-xl text-slate-400 mb-10 max-w-2xl mx-auto leading-relaxed">
-              Unlimited MCQs, PYQs, Mock Tests and AI-powered daily challenges
-              designed for competitive exam aspirants. Level up your prep like a game.
+            <p className="text-[var(--text-secondary)] text-lg md:text-xl max-w-2xl mx-auto mb-12 leading-relaxed">
+              {language === 'en' 
+                ? 'Unlimited MCQs, PYQs, Mock Tests, and AI-powered daily challenges designed for competitive exams. Fresh, clear, and focused on your growth.'
+                : 'प्रतियोगी परीक्षाओं के लिए असीमित MCQ, PYQ, मॉक टेस्ट और AI-संचालित दैनिक चुनौतियाँ। ताज़ा, स्पष्ट, और आपके विकास पर केंद्रित।'}
             </p>
 
             {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
               <Link
                 href="/quiz"
-                className="flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-2xl font-bold text-lg hover:shadow-[0_0_30px_rgba(59,130,246,0.4)] hover:scale-[1.02] transition-all"
+                className="btn-green px-8 py-4 text-lg flex items-center gap-2"
               >
-                Start Practice <ArrowRight className="w-5 h-5" />
+                {language === 'en' ? 'Start Playing' : 'शुरू करें'} <ArrowRight className="w-5 h-5" />
               </Link>
               <Link
                 href="/dashboard"
-                className="flex items-center justify-center gap-2 bg-white/5 border border-white/10 text-white px-8 py-4 rounded-2xl font-bold text-lg hover:bg-white/10 transition-all"
+                className="btn-ghost-green px-8 py-4 text-lg flex items-center gap-2"
               >
-                <PlayCircle className="w-5 h-5 text-slate-400" /> Daily Challenge
+                <PlayCircle className="w-5 h-5" /> {language === 'en' ? 'Daily Challenge' : 'दैनिक चुनौती'}
               </Link>
             </div>
           </motion.div>
 
-          {/* ── Search Bar ── */}
+          {/* ── Search Bar (HD Glass Widget) ── */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.3, duration: 0.5 }}
-            className="mt-14 max-w-3xl mx-auto relative group"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.6 }}
+            className="mt-16 max-w-3xl mx-auto relative group z-20"
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 blur-xl opacity-15 group-hover:opacity-25 transition-opacity rounded-3xl" />
-            <form onSubmit={handleSearch} className="relative bg-[#12121a] border border-white/10 rounded-2xl sm:rounded-3xl p-2 sm:p-3 flex items-center">
-              <div className="pl-3 sm:pl-4">
-                <Search className="w-5 h-5 sm:w-6 sm:h-6 text-slate-500" />
+            <form onSubmit={handleSearch} className="hd-widget rounded-full p-2 sm:p-3 flex items-center bg-white/80 backdrop-blur-xl">
+              <div className="pl-5">
+                <Search className="w-6 h-6 text-[var(--accent-green)]" />
               </div>
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search any topic... (e.g., Ratio, Indian Polity)"
-                className="w-full pl-3 sm:pl-4 pr-4 py-3 sm:py-4 text-sm sm:text-lg outline-none text-white placeholder-slate-500 bg-transparent"
+                placeholder={language === 'en' ? "Search any topic... (e.g., Ratio, Indian Polity)" : "कोई भी विषय खोजें... (जैसे, Ratio, Indian Polity)"}
+                className="w-full pl-4 pr-4 py-3 sm:py-4 text-lg font-medium outline-none text-[var(--text-primary)] placeholder-[var(--text-muted)] bg-transparent"
               />
               <button
                 type="submit"
-                className="bg-white text-[#0a0a0f] px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl font-bold text-sm sm:text-base hover:bg-slate-200 transition flex-shrink-0"
+                className="btn-green px-8 py-3 sm:py-4 text-base flex-shrink-0"
               >
-                Find Tests
+                {language === 'en' ? 'Find Quizzes' : 'क्विज़ खोजें'}
               </button>
             </form>
           </motion.div>
@@ -163,23 +164,25 @@ export default function Home() {
       </section>
 
       {/* ── Stats Strip ── */}
-      <section className="border-y border-white/5 bg-white/[0.02]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8 sm:py-12">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
-            {STATS.map((stat, i) => (
+      <section className="relative z-10 py-12">
+        <div className="max-w-6xl mx-auto px-4 sm:px-8">
+          <div className="hd-widget p-8 grid grid-cols-2 lg:grid-cols-4 gap-8">
+            {getStats(language).map((stat, i) => (
               <motion.div
                 key={i}
-                initial={{ opacity: 0, y: 12 }}
+                initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-                className="text-center"
+                transition={{ delay: i * 0.1, duration: 0.5 }}
+                className="text-center group"
               >
-                <stat.icon className="w-6 h-6 text-blue-400 mx-auto mb-2" />
-                <div className="text-2xl sm:text-3xl font-extrabold text-white">
+                <div className="w-14 h-14 mx-auto mb-4 bg-[var(--accent-green-light)] rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 group-hover:rotate-3">
+                  <stat.icon className="w-7 h-7 text-[var(--accent-green-dark)]" />
+                </div>
+                <div className="text-3xl font-bold text-[var(--text-primary)] mb-1">
                   {stat.value}
                 </div>
-                <div className="text-xs sm:text-sm text-slate-500 font-medium mt-1">
+                <div className="text-sm text-[var(--text-muted)] font-medium">
                   {stat.label}
                 </div>
               </motion.div>
@@ -189,38 +192,35 @@ export default function Home() {
       </section>
 
       {/* ── Exam Categories ── */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-8 py-16 sm:py-24">
-        <div className="text-center mb-10 sm:mb-14">
-          <div className="inline-flex items-center gap-2 bg-yellow-500/10 border border-yellow-500/20 px-3 py-1 rounded-full mb-4">
-            <Trophy className="w-4 h-4 text-yellow-500" />
-            <span className="text-xs font-bold text-yellow-300">POPULAR EXAMS</span>
+      <section className="relative z-10 max-w-7xl mx-auto px-4 sm:px-8 py-24">
+        <div className="text-center mb-16">
+          <div className="badge-green mb-4">
+            <Trophy className="w-4 h-4" />
+            <span>{language === 'en' ? 'POPULAR EXAMS' : 'लोकप्रिय परीक्षाएं'}</span>
           </div>
-          <h2 className="text-2xl sm:text-4xl font-extrabold text-white">
-            Choose Your Exam Category
+          <h2 className="heading-premium text-4xl sm:text-5xl">
+            {language === 'en' ? 'Choose Your Path to Success' : 'सफलता का अपना मार्ग चुनें'}
           </h2>
-          <p className="text-slate-500 mt-3 max-w-lg mx-auto text-sm sm:text-base">
-            We cover every major government exam. Pick one and start practicing instantly.
-          </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          {EXAM_CATEGORIES.map((cat, idx) => {
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          {getExamCategories(language).map((cat, idx) => {
             const Icon = cat.icon;
             return (
               <motion.div
                 key={idx}
-                initial={{ opacity: 0, y: 16 }}
+                initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: idx * 0.08 }}
+                transition={{ delay: idx * 0.1, duration: 0.5 }}
               >
                 <Link href={`/exam/${cat.slug}`}>
-                  <div className="bg-[#12121a] border border-white/5 rounded-2xl p-6 hover:border-white/15 hover:bg-white/[0.04] transition-all cursor-pointer group hover-lift">
-                    <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
-                      <Icon className={`w-6 h-6 text-${cat.color}-400`} />
+                  <div className="hd-widget p-8 text-center group cursor-pointer h-full flex flex-col items-center justify-center border border-transparent hover:border-[var(--accent-green)]/30">
+                    <div className="w-16 h-16 rounded-2xl bg-[var(--bg-elevated)] text-[var(--accent-green)] flex items-center justify-center mb-6 transition-all group-hover:scale-110 group-hover:bg-[var(--accent-green)] group-hover:text-white group-hover:shadow-lg group-hover:shadow-[var(--accent-green)]/30">
+                      <Icon className="w-8 h-8" />
                     </div>
-                    <h3 className="font-bold text-white text-lg mb-1">{cat.name}</h3>
-                    <p className="text-slate-500 text-sm">{cat.count}</p>
+                    <h3 className="font-bold text-[var(--text-primary)] text-xl mb-2">{cat.name}</h3>
+                    <p className="text-[var(--text-muted)] text-sm">{cat.count}</p>
                   </div>
                 </Link>
               </motion.div>
@@ -230,37 +230,33 @@ export default function Home() {
       </section>
 
       {/* ── Features Section ── */}
-      <section className="bg-white/[0.015] border-y border-white/5">
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 py-16 sm:py-24">
-          <div className="text-center mb-10 sm:mb-14">
-            <div className="inline-flex items-center gap-2 bg-purple-500/10 border border-purple-500/20 px-3 py-1 rounded-full mb-4">
-              <Sparkles className="w-4 h-4 text-purple-400" />
-              <span className="text-xs font-bold text-purple-300">WHY AURAPREP</span>
-            </div>
-            <h2 className="text-2xl sm:text-4xl font-extrabold text-white">
-              Built For Serious Aspirants
+      <section className="relative z-10 py-24">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8">
+          <div className="text-center mb-16">
+            <h2 className="heading-premium text-4xl sm:text-5xl">
+              {language === 'en' ? "Why You'll Love Learning Here" : "आपको यहाँ सीखना क्यों पसंद आएगा"}
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
-            {FEATURES.map((feat, i) => {
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {getFeatures(language).map((feat, i) => {
               const Icon = feat.icon;
               return (
                 <motion.div
                   key={i}
-                  initial={{ opacity: 0, y: 16 }}
+                  initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
-                  transition={{ delay: i * 0.1 }}
-                  className="bg-[#12121a] border border-white/5 rounded-2xl p-6 sm:p-8 hover:border-white/10 transition-all group"
+                  transition={{ delay: i * 0.1, duration: 0.5 }}
+                  className="hd-widget p-8 flex gap-6 items-start"
                 >
-                  <div
-                    className={`w-12 h-12 rounded-xl bg-gradient-to-br ${feat.gradient} flex items-center justify-center mb-5 group-hover:scale-110 transition-transform shadow-lg`}
-                  >
-                    <Icon className="w-6 h-6 text-white" />
+                  <div className="w-14 h-14 rounded-2xl flex-shrink-0 flex items-center justify-center bg-[var(--accent-green-light)] text-[var(--accent-green-dark)]">
+                    <Icon className="w-7 h-7" />
                   </div>
-                  <h3 className="font-bold text-white text-lg mb-2">{feat.title}</h3>
-                  <p className="text-slate-400 text-sm leading-relaxed">{feat.desc}</p>
+                  <div>
+                    <h3 className="font-bold text-[var(--text-primary)] text-xl mb-2">{feat.title}</h3>
+                    <p className="text-[var(--text-secondary)] leading-relaxed">{feat.desc}</p>
+                  </div>
                 </motion.div>
               );
             })}
@@ -269,32 +265,37 @@ export default function Home() {
       </section>
 
       {/* ── Daily Challenge Banner ── */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-8 py-16 sm:py-24">
-        <Link href="/dashboard">
-          <div className="bg-gradient-to-br from-[#12121a] to-[#1a1a30] rounded-3xl p-8 md:p-12 relative overflow-hidden flex flex-col md:flex-row items-center justify-between border border-white/10 cursor-pointer group hover:border-white/20 transition-all">
-            {/* Glows */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500 rounded-full blur-[120px] opacity-15 animate-pulse-slow pointer-events-none" />
-            <div className="absolute bottom-0 left-[20%] w-64 h-64 bg-purple-500 rounded-full blur-[120px] opacity-10 pointer-events-none" />
+      <section className="relative z-10 max-w-5xl mx-auto px-4 sm:px-8 py-24">
+        <motion.div
+          whileHover={{ scale: 1.01 }}
+          transition={{ duration: 0.3 }}
+        >
+          <Link href="/dashboard">
+            <div className="hd-widget rounded-3xl p-10 md:p-14 relative overflow-hidden flex flex-col md:flex-row items-center justify-between group border-2 border-transparent hover:border-[var(--accent-green)]/20">
+              
+              <div className="absolute top-0 right-0 w-64 h-64 bg-[var(--accent-green)]/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
 
-            <div className="relative z-10 md:w-2/3 text-left">
-              <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md text-white text-xs font-bold px-3 py-1 rounded-full mb-4 border border-white/10">
-                <Target className="w-3.5 h-3.5" /> DAILY LIVE TARGET
+              <div className="relative z-10 md:w-2/3 text-center md:text-left mb-8 md:mb-0">
+                <div className="badge-green mb-6 shadow-sm">
+                  <Target className="w-4 h-4" /> 
+                  <span>{language === 'en' ? "DAILY LIVE TARGET" : "दैनिक लाइव लक्ष्य"}</span>
+                </div>
+                <h2 className="heading-premium text-4xl sm:text-5xl text-[var(--text-primary)] mb-4">
+                  {language === 'en' ? "Today's Epic Challenge" : "आज की महाकाव्य चुनौती"}
+                </h2>
+                <p className="text-[var(--text-secondary)] text-lg max-w-md mx-auto md:mx-0">
+                  {language === 'en' ? "Boost your XP, maintain your streak, and unlock new badges by completing today's mission!" : "आज के मिशन को पूरा करके अपना XP बढ़ाएं, अपनी स्ट्रीक बनाए रखें और नए बैज अनलॉक करें!"}
+                </p>
               </div>
-              <h2 className="text-2xl sm:text-3xl md:text-5xl font-extrabold text-white mb-4 group-hover:scale-[1.01] transition-transform">
-                Today's 10 Question Challenge
-              </h2>
-              <p className="text-slate-400 text-sm sm:text-base max-w-md leading-relaxed">
-                Boost your XP, maintain your streak, and see how you rank among the top 100 students today.
-              </p>
-            </div>
 
-            <div className="relative z-10 mt-8 md:mt-0 flex-shrink-0">
-              <div className="bg-white text-[#0a0a0f] px-8 py-4 rounded-2xl font-bold text-base sm:text-lg hover:shadow-xl group-hover:scale-105 transition-all flex items-center gap-2">
-                Go to Dashboard <ArrowRight className="w-5 h-5" />
+              <div className="relative z-10 flex-shrink-0">
+                <div className="btn-green px-8 py-5 text-xl flex items-center gap-3">
+                  {language === 'en' ? "Let's Go!" : "चलिए शुरू करें!"} <ArrowRight className="w-6 h-6" />
+                </div>
               </div>
             </div>
-          </div>
-        </Link>
+          </Link>
+        </motion.div>
       </section>
 
       <Footer />

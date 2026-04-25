@@ -5,9 +5,10 @@ import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Clock, Trophy, ChevronRight, ChevronLeft, Flag,
-  CheckCircle2, AlertCircle, Lightbulb, Zap, Target, Settings, BookOpen
+  CheckCircle2, AlertCircle, Lightbulb, Zap, Target, Settings, BookOpen, Languages
 } from "lucide-react";
 import Link from "next/link";
+import { useLanguage } from "@/context/LanguageContext";
 
 // Fallback questions (used when no API / no params)
 const MOCK_QUESTIONS = [
@@ -65,6 +66,11 @@ function QuizEngineInner() {
   const [isSubmitted,        setIsSubmitted]        = useState(false);
   const [showScoreboard,     setShowScoreboard]     = useState(false);
 
+  // Bilingual State
+  const { language, toggleLanguage } = useLanguage();
+  const [isTranslating,          setIsTranslating]          = useState(false);
+  const [translatedQuestionsMap, setTranslatedQuestionsMap] = useState({});
+
   // Fetch user profile for XP saving
   useEffect(() => {
     async function fetchUser() {
@@ -105,8 +111,9 @@ function QuizEngineInner() {
     setSelectedAnswers(prev => ({ ...prev, [currentQuestionIdx]: optIdx }));
   };
 
-  // ── Derived values ────────────────────────────────────────────────────────
-  const currentQ     = questions[currentQuestionIdx];
+  const activeQuestions = language === "en" ? questions : (translatedQuestionsMap["hi"] || questions);
+  const currentQ     = activeQuestions[currentQuestionIdx];
+
   const totalAnswered = Object.keys(selectedAnswers).length;
   const progressPct  = questions.length > 0 ? (totalAnswered / questions.length) * 100 : 0;
   const allAnswered  = questions.length > 0 && totalAnswered === questions.length;
@@ -115,6 +122,31 @@ function QuizEngineInner() {
   if (isSubmitted) {
     questions.forEach((q, i) => { if (selectedAnswers[i] === q.correct) correctCount++; });
   }
+
+  // ── Auto-translate when language changes ────────────────────────────────
+  useEffect(() => {
+    const fetchTranslation = async () => {
+      if (language === "hi" && !translatedQuestionsMap["hi"] && questions.length > 0 && !isTranslating) {
+        setIsTranslating(true);
+        try {
+          const res = await fetch("/api/translate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ questions, targetLanguage: "Hindi" })
+          });
+          const data = await res.json();
+          if (data.translated && data.translated.length > 0) {
+            setTranslatedQuestionsMap(prev => ({ ...prev, hi: data.translated }));
+          }
+        } catch (err) {
+          console.error("Translation Failed", err);
+        } finally {
+          setIsTranslating(false);
+        }
+      }
+    };
+    fetchTranslation();
+  }, [language, questions, translatedQuestionsMap, isTranslating]);
 
   // ── Start Quiz ────────────────────────────────────────────────────────────
   const handleStartQuiz = async () => {
@@ -219,19 +251,19 @@ function QuizEngineInner() {
         >
           <div className="flex items-center gap-3 mb-2">
             <Settings className="w-6 h-6 text-blue-500" />
-            <h1 className="text-2xl font-bold text-white">Configure Practice</h1>
+            <h1 className="text-2xl font-bold text-white">{language === 'en' ? 'Configure Practice' : 'अभ्यास कॉन्फ़िगर करें'}</h1>
           </div>
 
           {urlExam && (
             <div className="text-xs text-slate-500 mb-6 ml-9">
-              Exam: <span className="text-blue-400 font-semibold">{urlExam}</span>
+              {language === 'en' ? 'Exam:' : 'परीक्षा:'} <span className="text-blue-400 font-semibold">{urlExam}</span>
             </div>
           )}
 
           {/* Subject badges */}
           {subjectList.length > 0 && (
             <div className="mb-6">
-              <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Selected Subjects</div>
+              <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">{language === 'en' ? 'Selected Subjects' : 'चयनित विषय'}</div>
               <div className="flex flex-wrap gap-2">
                 {subjectList.map((s, i) => (
                   <span key={i} className="px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs font-bold rounded-lg">
@@ -245,7 +277,7 @@ function QuizEngineInner() {
           <div className="space-y-6">
             {/* Question Count */}
             <div>
-              <label className="text-slate-400 text-xs font-bold tracking-wider mb-3 block uppercase">Number of Questions</label>
+              <label className="text-slate-400 text-xs font-bold tracking-wider mb-3 block uppercase">{language === 'en' ? 'Number of Questions' : 'प्रश्नों की संख्या'}</label>
               <div className="grid grid-cols-4 gap-3">
                 {[10, 20, 30, 50].map(num => (
                   <button
@@ -265,18 +297,18 @@ function QuizEngineInner() {
 
             {/* Difficulty */}
             <div>
-              <label className="text-slate-400 text-xs font-bold tracking-wider mb-3 block uppercase">Difficulty Level</label>
+              <label className="text-slate-400 text-xs font-bold tracking-wider mb-3 block uppercase">{language === 'en' ? 'Difficulty Level' : 'कठिनाई स्तर'}</label>
               <div className="grid grid-cols-3 gap-3">
                 {[
-                  { label: "Beginner", emoji: "🟢" },
-                  { label: "Intermediate", emoji: "🟡" },
-                  { label: "Hard Mode", emoji: "🔴" },
-                ].map(({ label, emoji }) => (
+                  { label: language === 'en' ? "Beginner" : "शुरुआती", value: "Beginner", emoji: "🟢" },
+                  { label: language === 'en' ? "Intermediate" : "मध्यम", value: "Intermediate", emoji: "🟡" },
+                  { label: language === 'en' ? "Hard Mode" : "कठिन", value: "Hard Mode", emoji: "🔴" },
+                ].map(({ label, value, emoji }) => (
                   <button
-                    key={label}
-                    onClick={() => setConfigDifficulty(label)}
+                    key={value}
+                    onClick={() => setConfigDifficulty(value)}
                     className={`py-3 rounded-xl font-bold transition-all border text-sm ${
-                      configDifficulty === label
+                      configDifficulty === value
                         ? "bg-purple-600/20 border-purple-500 text-purple-400"
                         : "bg-[#0a0a0f] border-white/10 text-slate-400 hover:border-slate-500"
                     }`}
@@ -289,7 +321,7 @@ function QuizEngineInner() {
 
             {/* Time estimate */}
             <div className="text-xs text-slate-500 text-center">
-              ⏱ Estimated: ~{Math.ceil(configQCount * 1.5)} minutes
+              ⏱ {language === 'en' ? 'Estimated:' : 'अनुमानित:'} ~{Math.ceil(configQCount * 1.5)} {language === 'en' ? 'minutes' : 'मिनट'}
             </div>
 
             <button
@@ -298,13 +330,13 @@ function QuizEngineInner() {
               className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-4 rounded-xl hover:shadow-[0_0_20px_rgba(59,130,246,0.4)] transition-all flex justify-center items-center gap-2 disabled:opacity-50"
             >
               {isLoadingQuestions
-                ? <span className="animate-pulse">✨ Generating {configQCount} Questions...</span>
-                : <><Target className="w-5 h-5" /> Enter Arena</>}
+                ? <span className="animate-pulse">✨ {language === 'en' ? `Generating ${configQCount} Questions...` : `${configQCount} प्रश्न उत्पन्न हो रहे हैं...`}</span>
+                : <><Target className="w-5 h-5" /> {language === 'en' ? 'Enter Arena' : 'प्रारंभ करें'}</>}
             </button>
 
             {!hasUrlParams && (
               <Link href="/exam/ssc-cgl" className="block text-center text-xs text-slate-500 hover:text-blue-400 transition">
-                ← Select an exam to choose subjects
+                ← {language === 'en' ? 'Select an exam to choose subjects' : 'विषय चुनने के लिए परीक्षा चुनें'}
               </Link>
             )}
           </div>
@@ -319,20 +351,34 @@ function QuizEngineInner() {
       {/* Top Bar */}
       <div className="sticky top-0 z-50 bg-[#0a0a0f]/90 backdrop-blur-md border-b border-white/10 px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-6 w-1/3">
-          <Link href="/dashboard" className="text-slate-400 hover:text-white font-bold hidden md:block">Quit</Link>
-          <div className="flex flex-col w-full max-w-[200px]">
-            <span className="text-xs text-slate-400 font-bold mb-1 tracking-wider">PROGRESS</span>
+          <Link href="/dashboard" className="text-slate-400 hover:text-white font-bold hidden md:block">{language === 'en' ? 'Quit' : 'छोड़ें'}</Link>
+          <div className="flex flex-col w-full max-w-[150px] ml-4">
+            <span className="text-xs text-slate-400 font-bold mb-1 tracking-wider">{language === 'en' ? 'PROGRESS' : 'प्रगति'}</span>
             <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
               <div className="h-full bg-blue-500 transition-all duration-500" style={{ width: `${progressPct}%` }} />
             </div>
           </div>
         </div>
 
-        <div className={`flex items-center gap-3 px-5 py-2 rounded-2xl border ${timeLeft < 60 ? "bg-red-500/10 border-red-500/30" : "bg-white/5 border-white/10"}`}>
-          <Clock className={`w-5 h-5 ${timeLeft < 60 ? "text-red-400 animate-pulse" : "text-blue-400"}`} />
-          <span className={`text-xl font-mono font-bold tracking-wider ${timeLeft < 60 ? "text-red-300" : "text-white"}`}>
-            {formatTime(timeLeft)}
-          </span>
+        <div className="flex items-center gap-4">
+          <button
+             onClick={toggleLanguage}
+             disabled={isTranslating}
+             className="hidden sm:flex px-4 py-2 rounded-xl border border-white/20 text-xs font-bold text-white items-center gap-2 hover:bg-white/10 transition"
+          >
+             {isTranslating ? (
+               <><div className="animate-spin w-4 h-4 border-2 border-white/20 border-t-white rounded-full"/> {language === 'en' ? 'Translating...' : 'अनुवाद हो रहा है...'}</>
+             ) : (
+               <><Languages className="w-4 h-4 text-blue-400" /> {language === "en" ? "Translate to Hindi" : "English Mode"}</>
+             )}
+          </button>
+
+          <div className={`flex items-center gap-3 px-5 py-2 rounded-2xl border ${timeLeft < 60 ? "bg-red-500/10 border-red-500/30" : "bg-white/5 border-white/10"}`}>
+            <Clock className={`w-5 h-5 ${timeLeft < 60 ? "text-red-400 animate-pulse" : "text-blue-400"}`} />
+            <span className={`text-xl font-mono font-bold tracking-wider ${timeLeft < 60 ? "text-red-300" : "text-white"}`}>
+              {formatTime(timeLeft)}
+            </span>
+          </div>
         </div>
 
         <div className="flex items-center justify-end gap-3 w-1/3">
@@ -357,22 +403,22 @@ function QuizEngineInner() {
                 className="bg-[#12121a] border border-white/10 rounded-3xl p-8 max-w-lg w-full text-center shadow-2xl"
               >
                 <Trophy className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
-                <h2 className="text-3xl font-extrabold text-white mb-2">Quiz Completed!</h2>
-                <p className="text-slate-400 mb-6">Here is your performance summary.</p>
+                <h2 className="text-3xl font-extrabold text-white mb-2">{language === 'en' ? 'Quiz Completed!' : 'क्विज़ पूरा हुआ!'}</h2>
+                <p className="text-slate-400 mb-6">{language === 'en' ? 'Here is your performance summary.' : 'यहाँ आपका प्रदर्शन सारांश है।'}</p>
 
                 <div className="grid grid-cols-3 gap-4 mb-8">
                   <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
-                    <div className="text-sm font-bold text-slate-400 mb-1">SCORE</div>
+                    <div className="text-sm font-bold text-slate-400 mb-1">{language === 'en' ? 'SCORE' : 'स्कोर'}</div>
                     <div className="text-2xl font-bold text-white">{correctCount} <span className="text-slate-500 text-lg">/ {questions.length}</span></div>
                   </div>
                   <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
-                    <div className="text-sm font-bold text-slate-400 mb-1">ACCURACY</div>
+                    <div className="text-sm font-bold text-slate-400 mb-1">{language === 'en' ? 'ACCURACY' : 'सटीकता'}</div>
                     <div className="text-2xl font-bold text-blue-400">
                       {questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0}%
                     </div>
                   </div>
                   <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
-                    <div className="text-sm font-bold text-slate-400 mb-1">XP</div>
+                    <div className="text-sm font-bold text-slate-400 mb-1">{language === 'en' ? 'XP' : 'एक्सपी'}</div>
                     <div className="text-2xl font-bold text-yellow-400">+{xpEarned}</div>
                   </div>
                 </div>
@@ -382,10 +428,10 @@ function QuizEngineInner() {
                     onClick={() => setShowScoreboard(false)}
                     className="flex-1 bg-blue-600 text-white font-bold py-3.5 rounded-xl hover:bg-blue-500 transition flex justify-center items-center gap-2"
                   >
-                    Review Answers <ChevronRight className="w-5 h-5" />
+                    {language === 'en' ? 'Review Answers' : 'उत्तरों की समीक्षा करें'} <ChevronRight className="w-5 h-5" />
                   </button>
                   <Link href="/dashboard" className="flex-1 bg-white/5 border border-white/10 text-white font-bold py-3.5 rounded-xl hover:bg-white/10 transition flex justify-center items-center gap-2">
-                    Dashboard
+                    {language === 'en' ? 'Dashboard' : 'डैशबोर्ड'}
                   </Link>
                 </div>
               </motion.div>
@@ -453,19 +499,19 @@ function QuizEngineInner() {
               >
                 {selectedAnswers[currentQuestionIdx] !== currentQ.correct && currentQ.mistake_reason && (
                   <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-5">
-                    <h3 className="font-bold text-red-400 mb-2 flex items-center gap-2"><AlertCircle className="w-4 h-4" /> AI Mistake Analysis</h3>
+                    <h3 className="font-bold text-red-400 mb-2 flex items-center gap-2"><AlertCircle className="w-4 h-4" /> {language === 'en' ? 'AI Mistake Analysis' : 'AI गलती विश्लेषण'}</h3>
                     <p className="text-red-200/80 text-sm leading-relaxed">{currentQ.mistake_reason}</p>
                   </div>
                 )}
                 {currentQ.shortcut && (
                   <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-5">
-                    <h3 className="font-bold text-yellow-500 mb-2 flex items-center gap-2"><Zap className="w-4 h-4 fill-yellow-500" /> Shortcut Trick</h3>
+                    <h3 className="font-bold text-yellow-500 mb-2 flex items-center gap-2"><Zap className="w-4 h-4 fill-yellow-500" /> {language === 'en' ? 'Shortcut Trick' : 'शॉर्टकट ट्रिक'}</h3>
                     <p className="text-yellow-200/90 text-sm leading-relaxed">{currentQ.shortcut}</p>
                   </div>
                 )}
                 {currentQ.step_by_step && (
                   <div className="bg-blue-600/10 border border-blue-500/30 rounded-2xl p-5">
-                    <h3 className="font-bold text-blue-400 mb-2 flex items-center gap-2"><Lightbulb className="w-4 h-4" /> Step-by-Step Logic</h3>
+                    <h3 className="font-bold text-blue-400 mb-2 flex items-center gap-2"><Lightbulb className="w-4 h-4" /> {language === 'en' ? 'Step-by-Step Logic' : 'स्टेप-बाय-स्टेप तर्क'}</h3>
                     <p className="text-slate-300 text-sm leading-relaxed">{currentQ.step_by_step}</p>
                   </div>
                 )}
@@ -490,7 +536,7 @@ function QuizEngineInner() {
               }`}
             >
               <Flag className={`w-4 h-4 ${markedForReview.has(currentQuestionIdx) ? "fill-orange-400" : ""}`} />
-              {markedForReview.has(currentQuestionIdx) ? "Marked" : "Mark"}
+              {markedForReview.has(currentQuestionIdx) ? (language === 'en' ? 'Marked' : 'चिह्नित') : (language === 'en' ? 'Mark' : 'चिह्नित करें')}
             </button>
 
             <div className="flex gap-3 flex-wrap justify-end">
@@ -499,7 +545,7 @@ function QuizEngineInner() {
                 disabled={currentQuestionIdx === 0}
                 className="flex items-center gap-2 bg-white/5 border border-white/10 text-white px-5 py-3 rounded-xl font-bold hover:bg-white/10 disabled:opacity-30 transition"
               >
-                <ChevronLeft className="w-5 h-5" /> Prev
+                <ChevronLeft className="w-5 h-5" /> {language === 'en' ? 'Prev' : 'पिछला'}
               </button>
 
               {currentQuestionIdx === questions.length - 1 ? (
@@ -508,14 +554,14 @@ function QuizEngineInner() {
                   disabled={isSubmitted}
                   className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white px-8 py-3 rounded-xl font-bold hover:shadow-[0_0_15px_rgba(16,185,129,0.5)] transition disabled:opacity-50"
                 >
-                  {isSubmitted ? "✅ Submitted" : "Submit Test"} <CheckCircle2 className="w-5 h-5" />
+                  {isSubmitted ? (language === 'en' ? "✅ Submitted" : "✅ सबमिट किया गया") : (language === 'en' ? "Submit Test" : "टेस्ट सबमिट करें")} <CheckCircle2 className="w-5 h-5" />
                 </button>
               ) : (
                 <button
                   onClick={() => setCurrentQuestionIdx(prev => prev + 1)}
                   className="flex items-center gap-2 bg-blue-600 border border-blue-500 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-500 transition"
                 >
-                  Next <ChevronRight className="w-5 h-5" />
+                  {language === 'en' ? 'Next' : 'अगला'} <ChevronRight className="w-5 h-5" />
                 </button>
               )}
 
@@ -525,7 +571,7 @@ function QuizEngineInner() {
                   onClick={handleSubmitQuiz}
                   className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white px-6 py-3 rounded-xl font-bold hover:shadow-[0_0_15px_rgba(16,185,129,0.5)] transition"
                 >
-                  Finish <CheckCircle2 className="w-5 h-5" />
+                  {language === 'en' ? 'Finish' : 'समाप्त करें'} <CheckCircle2 className="w-5 h-5" />
                 </button>
               )}
             </div>
@@ -534,8 +580,8 @@ function QuizEngineInner() {
 
         {/* Sidebar — Question Palette */}
         <div className="w-full lg:w-[280px] bg-[#12121a] lg:border-l border-t lg:border-t-0 border-white/10 p-5 flex flex-col flex-shrink-0">
-          <h3 className="text-base font-bold text-white mb-1">Question Palette</h3>
-          <p className="text-xs text-slate-500 mb-5">{totalAnswered} / {questions.length} answered</p>
+          <h3 className="text-base font-bold text-white mb-1">{language === 'en' ? 'Question Palette' : 'प्रश्न पैलेट'}</h3>
+          <p className="text-xs text-slate-500 mb-5">{totalAnswered} / {questions.length} {language === 'en' ? 'answered' : 'उत्तर दिए गए'}</p>
           <div className="grid grid-cols-5 sm:grid-cols-8 lg:grid-cols-5 gap-2.5">
             {questions.map((_, idx) => {
               const isCurrent  = currentQuestionIdx === idx;
@@ -568,9 +614,9 @@ function QuizEngineInner() {
 
           {/* Legend */}
           <div className="mt-6 space-y-2 text-xs text-slate-500">
-            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded bg-blue-600/20 border border-blue-500/50" /> Answered</div>
-            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded bg-orange-500/20 border border-orange-500/50" /> Marked</div>
-            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded bg-white/5 border border-white/10" /> Unanswered</div>
+            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded bg-blue-600/20 border border-blue-500/50" /> {language === 'en' ? 'Answered' : 'उत्तर दिया'}</div>
+            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded bg-orange-500/20 border border-orange-500/50" /> {language === 'en' ? 'Marked' : 'चिह्नित'}</div>
+            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded bg-white/5 border border-white/10" /> {language === 'en' ? 'Unanswered' : 'अनुत्तरित'}</div>
           </div>
         </div>
       </div>

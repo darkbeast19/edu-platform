@@ -4,16 +4,17 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useLanguage } from "@/context/LanguageContext";
 import {
   BrainCircuit, Menu, X, Trophy, BookOpen, Heart, HelpCircle,
-  User, LogIn, LogOut, LayoutDashboard, Settings, ChevronDown, BarChart3,
+  User, LogIn, LogOut, LayoutDashboard, BarChart3, ChevronDown,
 } from "lucide-react";
 
-const NAV_LINKS = [
-  { label: "Exams", href: "/exams", icon: BookOpen },
-  { label: "Leaderboard", href: "/leaderboard", icon: Trophy },
-  { label: "Testimonials", href: "/testimonials", icon: Heart },
-  { label: "Support", href: "/support", icon: HelpCircle },
+const getNavLinks = (lang) => [
+  { label: lang === 'en' ? "Exams" : "परीक्षाएं", href: "/exams", icon: BookOpen, color: "blue" },
+  { label: lang === 'en' ? "Leaderboard" : "लीडरबोर्ड", href: "/leaderboard", icon: Trophy, color: "yellow" },
+  { label: lang === 'en' ? "Testimonials" : "प्रशंसापत्र", href: "/testimonials", icon: Heart, color: "pink" },
+  { label: lang === 'en' ? "Support" : "सहायता", href: "/support", icon: HelpCircle, color: "blue" },
 ];
 
 export default function Navbar() {
@@ -21,6 +22,7 @@ export default function Navbar() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [user, setUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
+  const { language, toggleLanguage } = useLanguage();
   const pathname = usePathname();
   const router = useRouter();
   const dropdownRef = useRef(null);
@@ -31,14 +33,11 @@ export default function Navbar() {
 
     try {
       supabase = createClient();
-
-      // 1. Get current session immediately (reads from localStorage)
       supabase.auth.getSession().then(({ data: { session } }) => {
         setUser(session?.user ?? null);
         setAuthReady(true);
       });
 
-      // 2. Subscribe to future auth changes (login/logout events)
       const { data } = supabase.auth.onAuthStateChange((event, session) => {
         setUser(session?.user ?? null);
         setAuthReady(true);
@@ -46,7 +45,7 @@ export default function Navbar() {
       subscription = data.subscription;
     } catch (e) {
       console.error("Navbar auth error:", e);
-      setAuthReady(true); // show logged-out state gracefully
+      setAuthReady(true);
     }
 
     return () => {
@@ -54,7 +53,6 @@ export default function Navbar() {
     };
   }, []);
 
-  // Close dropdown on outside click
   useEffect(() => {
     function handleClickOutside(e) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -82,25 +80,27 @@ export default function Navbar() {
   const avatarLetter = displayName[0]?.toUpperCase() || "U";
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-white/5 bg-[#0a0a0f]/80 backdrop-blur-xl">
+    <nav className="sticky top-0 z-50 border-b border-[var(--border-subtle)] bg-[var(--bg-primary)]/80 backdrop-blur-xl font-['Plus_Jakarta_Sans']">
       <div className="flex items-center justify-between px-4 sm:px-8 py-4 max-w-7xl mx-auto">
 
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5 group flex-shrink-0">
-          <div className="p-2 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl shadow-[0_0_15px_rgba(59,130,246,0.5)] group-hover:shadow-[0_0_25px_rgba(59,130,246,0.7)] transition-shadow">
-            <BrainCircuit className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+        <Link href="/" className="flex items-center gap-3 group flex-shrink-0 animate-bounce-gentle">
+          <div className="p-2.5 bg-[var(--accent-pink)] rounded-2xl shadow-[0px_8px_16px_rgba(254,132,177,0.4),inset_2px_2px_4px_rgba(255,255,255,0.4)] transition-transform group-hover:scale-110">
+            <BrainCircuit className="w-6 h-6 text-white" />
           </div>
-          <span className="font-extrabold text-xl sm:text-2xl tracking-tight text-white">AuraPrep</span>
+          <span className="font-extrabold text-2xl tracking-tight text-[var(--text-primary)] group-hover:text-[var(--accent-pink-dark)] transition-colors">
+            AuraPrep
+          </span>
         </Link>
 
         {/* Desktop Nav Links */}
-        <div className="hidden lg:flex items-center gap-1">
-          {NAV_LINKS.map((link) => {
+        <div className="hidden lg:flex items-center gap-2">
+          {getNavLinks(language).map((link) => {
             const isActive = pathname === link.href;
             return (
               <Link key={link.href} href={link.href}
-                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-                  isActive ? "bg-white/10 text-white" : "text-slate-400 hover:text-white hover:bg-white/5"
+                className={`px-5 py-2.5 rounded-full text-sm font-bold transition-all ${
+                  isActive ? "bg-[var(--bg-card)] shadow-[var(--shadow-clay-inner)] text-[var(--text-primary)]" : "text-[var(--text-secondary)] hover:text-[var(--accent-pink-dark)] hover:bg-white/50"
                 }`}>
                 {link.label}
               </Link>
@@ -110,112 +110,132 @@ export default function Navbar() {
 
         {/* Desktop Auth Area */}
         <div className="hidden lg:flex items-center gap-3 min-w-[180px] justify-end">
-          {/* Show nothing until auth is ready to avoid flash */}
+          <button
+            onClick={toggleLanguage}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-card)] hover:bg-[var(--bg-elevated)] transition-colors text-sm font-bold shadow-sm"
+            title="Switch Language"
+          >
+            <span className={language === "en" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)]"}>EN</span>
+            <span className="text-[var(--border-subtle)]">/</span>
+            <span className={language === "hi" ? "text-[var(--text-primary)] font-extrabold" : "text-[var(--text-muted)]"}>अ</span>
+          </button>
+
           {authReady && (
             user ? (
-              /* ── LOGGED IN: Profile Dropdown ── */
               <div className="relative" ref={dropdownRef}>
                 <button onClick={() => setProfileOpen(!profileOpen)}
-                  className="flex items-center gap-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white px-3 py-2 rounded-xl font-semibold text-sm transition-all group">
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                  className="flex items-center gap-3 bg-[var(--bg-card)] border border-[var(--border-subtle)] shadow-sm text-[var(--text-primary)] px-2 py-1.5 rounded-full font-bold text-sm transition-all hover:shadow-[var(--shadow-clay-outer)]">
+                  <div className="w-8 h-8 rounded-full bg-[var(--accent-blue)] flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-inner">
                     {avatarLetter}
                   </div>
                   <span className="max-w-[100px] truncate">{displayName}</span>
-                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${profileOpen ? "rotate-180" : ""}`} />
+                  <ChevronDown className={`w-4 h-4 mr-2 text-[var(--text-muted)] transition-transform duration-200 ${profileOpen ? "rotate-180" : ""}`} />
                 </button>
 
                 {profileOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-56 bg-[#12121a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50">
-                    <div className="px-4 py-3 border-b border-white/5">
-                      <p className="text-xs text-slate-500 font-medium mb-0.5">Signed in as</p>
-                      <p className="text-sm text-white font-bold truncate">{user.email}</p>
+                  <div className="absolute right-0 top-full mt-3 w-56 bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-3xl shadow-[0px_20px_40px_rgba(44,47,48,0.1)] overflow-hidden z-50 animate-pop-in origin-top-right">
+                    <div className="px-5 py-4 bg-[var(--bg-elevated)]/50">
+                      <p className="text-xs text-[var(--text-muted)] font-bold mb-1">{language === 'en' ? "Signed in as" : "के रूप में साइन इन हैं"}</p>
+                      <p className="text-sm text-[var(--text-primary)] font-extrabold truncate">{user.email}</p>
                     </div>
-                    <div className="p-1.5 space-y-0.5">
+                    <div className="p-2 space-y-1">
                       <Link href="/dashboard" onClick={() => setProfileOpen(false)}
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/5 text-sm font-medium transition-all">
-                        <LayoutDashboard className="w-4 h-4 text-blue-400" /> Dashboard
+                        className="flex items-center gap-3 px-4 py-3 rounded-2xl text-[var(--text-secondary)] hover:text-[var(--accent-blue-dark)] hover:bg-[var(--accent-blue)]/10 text-sm font-bold transition-all">
+                        <LayoutDashboard className="w-5 h-5 text-[var(--accent-blue)]" /> {language === 'en' ? "Dashboard" : "डैशबोर्ड"}
                       </Link>
                       <Link href="/profile" onClick={() => setProfileOpen(false)}
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/5 text-sm font-medium transition-all">
-                        <User className="w-4 h-4 text-purple-400" /> My Profile
+                        className="flex items-center gap-3 px-4 py-3 rounded-2xl text-[var(--text-secondary)] hover:text-[var(--accent-pink-dark)] hover:bg-[var(--accent-pink)]/10 text-sm font-bold transition-all">
+                        <User className="w-5 h-5 text-[var(--accent-pink)]" /> {language === 'en' ? "My Profile" : "मेरी प्रोफ़ाइल"}
                       </Link>
                       <Link href="/dashboard/analytics" onClick={() => setProfileOpen(false)}
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/5 text-sm font-medium transition-all">
-                        <BarChart3 className="w-4 h-4 text-emerald-400" /> Analytics
+                        className="flex items-center gap-3 px-4 py-3 rounded-2xl text-[var(--text-secondary)] hover:text-[var(--accent-yellow-dark)] hover:bg-[var(--accent-yellow)]/10 text-sm font-bold transition-all">
+                        <BarChart3 className="w-5 h-5 text-[var(--accent-yellow)]" /> {language === 'en' ? "Analytics" : "एनालिटिक्स"}
                       </Link>
                     </div>
-                    <div className="p-1.5 border-t border-white/5">
+                    <div className="p-2 border-t border-[var(--border-subtle)]">
                       <button onClick={handleLogout}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-red-400 hover:text-red-300 hover:bg-red-500/10 text-sm font-semibold transition-all">
-                        <LogOut className="w-4 h-4" /> Sign Out
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-red-500 hover:text-red-700 hover:bg-red-50 text-sm font-bold transition-all">
+                        <LogOut className="w-5 h-5" /> {language === 'en' ? "Sign Out" : "साइन आउट"}
                       </button>
                     </div>
                   </div>
                 )}
               </div>
             ) : (
-              /* ── LOGGED OUT: Sign In Button ── */
               <Link href="/login"
-                className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:shadow-[0_0_20px_rgba(59,130,246,0.4)] transition-all">
-                <LogIn className="w-4 h-4" /> Sign In
+                className="clay-button-pink px-6 py-2.5 text-sm">
+                {language === 'en' ? "Sign In" : "साइन इन"}
               </Link>
             )
           )}
         </div>
 
         {/* Mobile Toggle */}
-        <button onClick={() => setMobileOpen(!mobileOpen)}
-          className="lg:hidden p-2 text-slate-400 hover:text-white transition">
-          {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-        </button>
+        <div className="lg:hidden flex items-center gap-3">
+          <button
+            onClick={toggleLanguage}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-xs font-bold shadow-sm"
+          >
+            <span className={language === "en" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)]"}>EN</span>
+            <span className="text-[var(--border-subtle)]">/</span>
+            <span className={language === "hi" ? "text-[var(--text-primary)] font-extrabold" : "text-[var(--text-muted)]"}>अ</span>
+          </button>
+          <button onClick={() => setMobileOpen(!mobileOpen)}
+            className="p-2 text-[var(--text-secondary)] hover:text-[var(--accent-pink)] transition">
+            {mobileOpen ? <X className="w-7 h-7" /> : <Menu className="w-7 h-7" />}
+          </button>
+        </div>
       </div>
 
       {/* Mobile Menu */}
       {mobileOpen && (
-        <div className="lg:hidden border-t border-white/5 bg-[#0a0a0f]/95 backdrop-blur-xl">
-          <div className="px-4 py-4 space-y-1">
-            {NAV_LINKS.map((link) => {
+        <div className="lg:hidden border-t border-[var(--border-subtle)] bg-[var(--bg-primary)]/95 backdrop-blur-xl absolute w-full animate-pop-in origin-top">
+          <div className="px-4 py-6 space-y-2">
+            {getNavLinks(language).map((link) => {
               const Icon = link.icon;
               const isActive = pathname === link.href;
               return (
                 <Link key={link.href} href={link.href} onClick={() => setMobileOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-sm transition-all ${
-                    isActive ? "bg-white/10 text-white" : "text-slate-400 hover:text-white hover:bg-white/5"
+                  className={`flex items-center gap-4 px-5 py-4 rounded-2xl font-bold text-base transition-all ${
+                    isActive ? "bg-[var(--bg-card)] shadow-[var(--shadow-clay-inner)] text-[var(--accent-pink-dark)]" : "text-[var(--text-secondary)] hover:text-[var(--accent-pink)] hover:bg-white/50"
                   }`}>
-                  <Icon className="w-5 h-5" /> {link.label}
+                  <div className={`p-2 rounded-xl bg-var(--accent-${link.color})/10 text-var(--accent-${link.color})`}>
+                    <Icon className="w-6 h-6" />
+                  </div>
+                  {link.label}
                 </Link>
               );
             })}
 
-            <div className="pt-3 border-t border-white/5 space-y-1">
+            <div className="pt-4 mt-4 border-t border-[var(--border-subtle)] space-y-2">
               {user ? (
                 <>
-                  <div className="flex items-center gap-3 px-4 py-3 bg-white/5 rounded-xl">
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center font-bold text-white">
+                  <div className="flex items-center gap-4 px-5 py-4 bg-[var(--bg-card)] rounded-3xl shadow-sm mb-4 border border-[var(--border-subtle)]">
+                    <div className="w-12 h-12 rounded-full bg-[var(--accent-blue)] flex items-center justify-center font-bold text-white text-lg shadow-inner">
                       {avatarLetter}
                     </div>
                     <div>
-                      <p className="text-white font-bold text-sm">{displayName}</p>
-                      <p className="text-slate-500 text-xs truncate max-w-[160px]">{user.email}</p>
+                      <p className="text-[var(--text-primary)] font-extrabold text-base">{displayName}</p>
+                      <p className="text-[var(--text-muted)] font-medium text-sm truncate max-w-[200px]">{user.email}</p>
                     </div>
                   </div>
                   <Link href="/dashboard" onClick={() => setMobileOpen(false)}
-                    className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 font-semibold text-sm transition-all">
-                    <LayoutDashboard className="w-5 h-5 text-blue-400" /> Dashboard
+                    className="flex items-center gap-4 px-5 py-4 rounded-2xl text-[var(--text-secondary)] hover:bg-[var(--accent-blue)]/10 font-bold text-base transition-all">
+                    <LayoutDashboard className="w-6 h-6 text-[var(--accent-blue)]" /> {language === 'en' ? "Dashboard" : "डैशबोर्ड"}
                   </Link>
                   <Link href="/profile" onClick={() => setMobileOpen(false)}
-                    className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 font-semibold text-sm transition-all">
-                    <User className="w-5 h-5 text-purple-400" /> My Profile
+                    className="flex items-center gap-4 px-5 py-4 rounded-2xl text-[var(--text-secondary)] hover:bg-[var(--accent-pink)]/10 font-bold text-base transition-all">
+                    <User className="w-6 h-6 text-[var(--accent-pink)]" /> {language === 'en' ? "My Profile" : "मेरी प्रोफ़ाइल"}
                   </Link>
                   <button onClick={() => { setMobileOpen(false); handleLogout(); }}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:bg-red-500/10 font-semibold text-sm transition-all">
-                    <LogOut className="w-5 h-5" /> Sign Out
+                    className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-red-500 hover:bg-red-50 font-bold text-base transition-all">
+                    <LogOut className="w-6 h-6" /> {language === 'en' ? "Sign Out" : "साइन आउट"}
                   </button>
                 </>
               ) : (
                 <Link href="/login" onClick={() => setMobileOpen(false)}
-                  className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold text-sm">
-                  <LogIn className="w-5 h-5" /> Sign In
+                  className="clay-button-pink w-full py-4 text-base flex justify-center mt-4">
+                  {language === 'en' ? "Sign In" : "साइन इन"}
                 </Link>
               )}
             </div>

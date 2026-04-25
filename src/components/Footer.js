@@ -23,18 +23,18 @@ const FOOTER_LINKS = {
 
 export default function Footer() {
   return (
-    <footer className="border-t border-white/5 bg-[#0a0a0f] mt-auto">
-      <div className="max-w-7xl mx-auto px-4 sm:px-8 py-12 sm:py-16">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 mb-12">
+    <footer className="border-t border-[var(--border-subtle)] bg-[var(--bg-primary)] mt-auto font-['Plus_Jakarta_Sans']">
+      <div className="max-w-7xl mx-auto px-4 sm:px-8 py-16">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-12 mb-16">
           {/* Brand */}
           <div className="col-span-2 sm:col-span-1">
-            <Link href="/" className="flex items-center gap-2 mb-4">
-              <div className="p-1.5 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg">
-                <BrainCircuit className="w-5 h-5 text-white" />
+            <Link href="/" className="flex items-center gap-3 mb-6 group animate-bounce-gentle">
+              <div className="p-2.5 bg-[var(--accent-pink)] rounded-2xl shadow-[0px_8px_16px_rgba(254,132,177,0.4),inset_2px_2px_4px_rgba(255,255,255,0.4)] group-hover:scale-110 transition-transform">
+                <BrainCircuit className="w-6 h-6 text-white" />
               </div>
-              <span className="font-extrabold text-lg text-white">AuraPrep</span>
+              <span className="font-extrabold text-xl text-[var(--text-primary)] group-hover:text-[var(--accent-pink-dark)] transition-colors">AuraPrep</span>
             </Link>
-            <p className="text-slate-500 text-sm leading-relaxed max-w-xs">
+            <p className="text-[var(--text-secondary)] text-sm font-medium leading-relaxed max-w-xs">
               India's most engaging exam prep platform. Practice smarter, score higher.
             </p>
           </div>
@@ -42,15 +42,15 @@ export default function Footer() {
           {/* Link Columns */}
           {Object.entries(FOOTER_LINKS).map(([heading, links]) => (
             <div key={heading}>
-              <h4 className="text-sm font-bold text-white tracking-wider uppercase mb-4">
+              <h4 className="text-sm font-extrabold text-[var(--text-primary)] tracking-wider uppercase mb-6">
                 {heading}
               </h4>
-              <ul className="space-y-2.5">
+              <ul className="space-y-4">
                 {links.map((link) => (
                   <li key={link.label}>
                     <Link
                       href={link.href}
-                      className="text-sm text-slate-500 hover:text-slate-200 transition-colors"
+                      className="text-sm font-bold text-[var(--text-secondary)] hover:text-[var(--accent-pink)] transition-colors inline-block hover:translate-x-1"
                     >
                       {link.label}
                     </Link>
@@ -62,15 +62,15 @@ export default function Footer() {
         </div>
 
         {/* Bottom Bar */}
-        <div className="pt-8 border-t border-white/5 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <p className="text-xs text-slate-600">
+        <div className="pt-8 border-t border-[var(--border-subtle)] flex flex-col sm:flex-row justify-between items-center gap-4">
+          <p className="text-xs font-bold text-[var(--text-muted)]">
             © {new Date().getFullYear()} AuraPrep. All rights reserved.
           </p>
           <div className="flex gap-6">
-            <Link href="#" className="text-xs text-slate-600 hover:text-slate-400 transition">
+            <Link href="#" className="text-xs font-bold text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition">
               Privacy Policy
             </Link>
-            <Link href="#" className="text-xs text-slate-600 hover:text-slate-400 transition">
+            <Link href="#" className="text-xs font-bold text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition">
               Terms of Service
             </Link>
           </div>
