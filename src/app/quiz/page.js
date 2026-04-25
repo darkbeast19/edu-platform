@@ -71,6 +71,7 @@ function QuizEngineInner() {
   const [isTranslating,          setIsTranslating]          = useState(false);
   const [translateError,         setTranslateError]         = useState(false);
   const [translatedQuestionsMap, setTranslatedQuestionsMap] = useState({});
+  const [originalLanguage,       setOriginalLanguage]       = useState("en");
 
   // Fetch user profile for XP saving
   useEffect(() => {
@@ -112,7 +113,7 @@ function QuizEngineInner() {
     setSelectedAnswers(prev => ({ ...prev, [currentQuestionIdx]: optIdx }));
   };
 
-  const activeQuestions = language === "en" ? questions : (translatedQuestionsMap["hi"] || questions);
+  const activeQuestions = translatedQuestionsMap[language] || questions;
   const currentQ     = activeQuestions[currentQuestionIdx];
 
   const totalAnswered = Object.keys(selectedAnswers).length;
@@ -124,14 +125,10 @@ function QuizEngineInner() {
     questions.forEach((q, i) => { if (selectedAnswers[i] === q.correct) correctCount++; });
   }
 
-  // ── Auto-translate when language is Hindi AND questions are loaded ────────
-  // Triggers on: (1) user switches to Hindi, (2) new questions load while already in Hindi
+  // ── Auto-translate when language changes ──────────────────────────────────
   useEffect(() => {
-    // Only run when Hindi is active and questions are available
-    if (language !== "hi" || questions.length === 0) return;
-    // Skip if we already have a valid translation for this exact question set
-    if (translatedQuestionsMap["hi"] && translatedQuestionsMap["hi"].length === questions.length) return;
-    // Skip if already in progress
+    if (questions.length === 0 || language === originalLanguage) return;
+    if (translatedQuestionsMap[language] && translatedQuestionsMap[language].length === questions.length) return;
     if (isTranslating) return;
 
     let cancelled = false;
@@ -142,12 +139,12 @@ function QuizEngineInner() {
         const res = await fetch("/api/translate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ questions, targetLanguage: "Hindi" })
+          body: JSON.stringify({ questions, targetLanguage: language === "hi" ? "Hindi" : "English" })
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (!cancelled && data.translated && data.translated.length > 0) {
-          setTranslatedQuestionsMap(prev => ({ ...prev, hi: data.translated }));
+          setTranslatedQuestionsMap(prev => ({ ...prev, [language]: data.translated }));
         } else if (!cancelled) {
           setTranslateError(true);
         }
@@ -191,18 +188,20 @@ function QuizEngineInner() {
       const data = await res.json();
       if (data.questions && data.questions.length > 0) {
         setQuestions(data.questions);
-        if (language === "hi") {
-          setTranslatedQuestionsMap({ hi: data.questions });
-        }
+        const fetchedLang = data.originalLanguage || language;
+        setOriginalLanguage(fetchedLang);
+        setTranslatedQuestionsMap({ [fetchedLang]: data.questions });
       } else {
         const fallback = MOCK_QUESTIONS.slice(0, configQCount);
         setQuestions(fallback);
-        if (language === "hi") setTranslatedQuestionsMap({ hi: fallback });
+        setOriginalLanguage(language);
+        setTranslatedQuestionsMap({ [language]: fallback });
       }
     } catch {
       const fallback = MOCK_QUESTIONS.slice(0, configQCount);
       setQuestions(fallback);
-      if (language === "hi") setTranslatedQuestionsMap({ hi: fallback });
+      setOriginalLanguage(language);
+      setTranslatedQuestionsMap({ [language]: fallback });
     } finally {
       setIsLoadingQuestions(false);
       setIsStarted(true);

@@ -101,9 +101,32 @@ export async function POST(request) {
                  };
               });
 
+              // Translate DB questions to Hindi if needed
+              if (isHindi && dbQuestions.length > 0 && process.env.GEMINI_API_KEY) {
+                const { GoogleGenerativeAI } = await import("@google/generative-ai");
+                const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+                const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+                const prompt = `Translate these exam questions from English to Hindi. Return ONLY valid JSON array. \n\nInput:\n${JSON.stringify(dbQuestions)}\n\nRules:\n- Keep the exact same JSON structure.\n- Translate text, options, step_by_step, shortcut, mistake_reason, topic.\n- Output must start with [ and end with ]`;
+                try {
+                  const result = await model.generateContent(prompt);
+                  let rawText = result.response.text().trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+                  const start = rawText.indexOf("[");
+                  const end = rawText.lastIndexOf("]");
+                  if (start !== -1 && end !== -1) {
+                    rawText = rawText.slice(start, end + 1);
+                    const parsed = JSON.parse(rawText);
+                    if (Array.isArray(parsed) && parsed.length === dbQuestions.length) {
+                      dbQuestions = parsed; // Replace with translated ones
+                    }
+                  }
+                } catch (err) {
+                  console.error("DB Translation failed:", err);
+                }
+              }
+
               // If DB gave us exactly what we need, return immediately
               if (dbQuestions.length >= numQuestions) {
-                 return Response.json({ questions: dbQuestions.slice(0, numQuestions), source: "database" });
+                return Response.json({ questions: dbQuestions.slice(0, numQuestions), source: "database", originalLanguage: language });
               }
             }
           }
@@ -175,7 +198,7 @@ RULES:
             if (combined.length >= numQuestions) break;
             combined.push({ ...aiQ, id: combined.length + 1 });
           }
-          return Response.json({ questions: combined, source: dbQuestions.length > 0 ? "db_and_ai" : "ai" });
+          return Response.json({ questions: combined, source: dbQuestions.length > 0 ? "db_and_ai" : "ai", originalLanguage: language });
         }
       } catch (aiError) {
         console.error("AI generation failed:", aiError.message);
@@ -191,7 +214,7 @@ RULES:
       if (combined.length >= numQuestions) break;
       combined.push({ ...fQ, id: combined.length + 1 });
     }
-    return Response.json({ questions: combined, source: "fallback" });
+    return Response.json({ questions: combined, source: "fallback", originalLanguage: language });
 
   } catch (error) {
     console.error("Quiz generation error:", error);
