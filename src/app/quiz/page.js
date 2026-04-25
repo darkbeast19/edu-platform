@@ -38,6 +38,33 @@ const MOCK_QUESTIONS = [
   }
 ];
 
+const MOCK_QUESTIONS_HI = [
+  {
+    id: 1, topic: "अनुपात और समानुपात",
+    text: "यदि A:B = 2:3 और B:C = 4:5, तो A:B:C क्या होगा?",
+    options: ["8:12:15", "2:3:5", "8:15:12", "6:12:15"], correct: 0,
+    step_by_step: "A:B को 4 से गुणा करें → 8:12। B:C को 3 से गुणा करें → 12:15। संयुक्त: 8:12:15",
+    shortcut: "(2×4):(3×4):(3×5) = 8:12:15",
+    mistake_reason: "छात्र अनुपातों को सीधे जोड़ने की कोशिश करते हैं।"
+  },
+  {
+    id: 2, topic: "प्रतिशत",
+    text: "एक संख्या पहले 20% बढ़ाई जाती है, फिर 10% घटाई जाती है। शुद्ध परिवर्तन क्या होगा?",
+    options: ["8% वृद्धि", "10% वृद्धि", "12% वृद्धि", "कोई परिवर्तन नहीं"], correct: 0,
+    step_by_step: "100 → +20% → 120 → -10% → 108। शुद्ध परिवर्तन = +8%",
+    shortcut: "शुद्ध% = 20 - 10 - (20×10)/100 = 8% वृद्धि",
+    mistake_reason: "20% और -10% को सीधे जोड़ना गलत है।"
+  },
+  {
+    id: 3, topic: "समय और कार्य",
+    text: "A एक काम 10 दिन में, B 15 दिन में कर सकता है। दोनों मिलकर कितने दिन में करेंगे?",
+    options: ["5 दिन", "6 दिन", "8 दिन", "12 दिन"], correct: 1,
+    step_by_step: "(10×15)/(10+15) = 150/25 = 6 दिन",
+    shortcut: "सूत्र: (a×b)/(a+b)",
+    mistake_reason: "दरों को जोड़ने के बजाय दिनों को जोड़ देना।"
+  }
+];
+
 // ── Core Quiz Engine (uses useSearchParams so must be inside Suspense) ──────
 function QuizEngineInner() {
   const searchParams = useSearchParams();
@@ -192,13 +219,13 @@ function QuizEngineInner() {
         setOriginalLanguage(fetchedLang);
         setTranslatedQuestionsMap({ [fetchedLang]: data.questions });
       } else {
-        const fallback = MOCK_QUESTIONS.slice(0, configQCount);
+        const fallback = language === "hi" ? MOCK_QUESTIONS_HI.slice(0, configQCount) : MOCK_QUESTIONS.slice(0, configQCount);
         setQuestions(fallback);
         setOriginalLanguage(language);
         setTranslatedQuestionsMap({ [language]: fallback });
       }
     } catch {
-      const fallback = MOCK_QUESTIONS.slice(0, configQCount);
+      const fallback = language === "hi" ? MOCK_QUESTIONS_HI.slice(0, configQCount) : MOCK_QUESTIONS.slice(0, configQCount);
       setQuestions(fallback);
       setOriginalLanguage(language);
       setTranslatedQuestionsMap({ [language]: fallback });

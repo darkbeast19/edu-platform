@@ -101,10 +101,8 @@ export async function POST(request) {
                  };
               });
 
-              // If DB gave us exactly what we need, return immediately
-              if (dbQuestions.length >= numQuestions) {
-                return Response.json({ questions: dbQuestions.slice(0, numQuestions), source: "database", originalLanguage: "en" });
-              }
+              // We do not return immediately or translate here anymore.
+              // We will run DB translation and AI generation concurrently below.
             }
           }
         }
@@ -114,19 +112,50 @@ export async function POST(request) {
     }
 
 
-    // ── 2. Fallback: Try Gemini AI Generation ──────────────────────────────
+    // ── 2. Concurrent Execution: DB Translation & AI Generation ─────────────────
+    let finalDbQuestions = [...dbQuestions];
+    let finalAiQuestions = [];
+
     if (process.env.GEMINI_API_KEY) {
-      try {
-        const { GoogleGenerativeAI } = await import("@google/generative-ai");
-        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const promises = [];
 
-        const needed = numQuestions - dbQuestions.length;
-        const langInstruction = isHindi
-          ? `IMPORTANT: Generate ALL text (question, options, step_by_step, shortcut, mistake_reason) in HINDI language (Devanagari script). Do NOT use English for any field except numbers and formulas.`
-          : `Generate in English.`;
+      // Promise 1: Translate DB questions if needed
+      if (isHindi && dbQuestions.length > 0) {
+        promises.push((async () => {
+          try {
+            const { GoogleGenerativeAI } = await import("@google/generative-ai");
+            const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+            const prompt = `Translate these exam questions from English to Hindi. Return ONLY valid JSON array. \n\nInput:\n${JSON.stringify(dbQuestions.slice(0, numQuestions))}\n\nRules:\n- Keep the exact same JSON structure.\n- Translate text, options, step_by_step, shortcut, mistake_reason, topic.\n- Output must start with [ and end with ]`;
+            const result = await model.generateContent(prompt);
+            let rawText = result.response.text().trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+            const start = rawText.indexOf("[");
+            const end = rawText.lastIndexOf("]");
+            if (start !== -1 && end !== -1) {
+              const parsed = JSON.parse(rawText.slice(start, end + 1));
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                finalDbQuestions = parsed;
+              }
+            }
+          } catch (err) {
+            console.error("DB Translation failed:", err);
+          }
+        })());
+      }
 
-        const prompt = `You are an expert exam setter for Indian competitive exams (SSC, Railway, Banking).
+      // Promise 2: Generate needed questions
+      const needed = numQuestions - dbQuestions.length;
+      if (needed > 0) {
+        promises.push((async () => {
+          try {
+            const { GoogleGenerativeAI } = await import("@google/generative-ai");
+            const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+            const langInstruction = isHindi
+              ? `IMPORTANT: Generate ALL text (question, options, step_by_step, shortcut, mistake_reason) in HINDI language (Devanagari script). Do NOT use English for any field except numbers and formulas.`
+              : `Generate in English.`;
+
+            const prompt = `You are an expert exam setter for Indian competitive exams (SSC, Railway, Banking).
 Generate exactly ${needed} multiple choice questions on the topic: "${topic}" at difficulty: "${difficulty}".
 ${langInstruction}
 
@@ -150,37 +179,40 @@ RULES:
 - "correct" must be an integer 0-3 (index of the correct option in the options array).
 - Generate all ${needed} unique questions.`;
 
-        const result = await model.generateContent(prompt);
-        let rawText = result.response.text().trim();
-
-        // Strip markdown code blocks if present
-        rawText = rawText
-          .replace(/^```(?:json)?\s*/i, "")
-          .replace(/\s*```\s*$/i, "")
-          .trim();
-
-        // Ensure it starts with "[" — extract the JSON array if needed
-        const arrayStart = rawText.indexOf("[");
-        const arrayEnd = rawText.lastIndexOf("]");
-        if (arrayStart !== -1 && arrayEnd !== -1) {
-          rawText = rawText.slice(arrayStart, arrayEnd + 1);
-        }
-
-        const aiQuestions = JSON.parse(rawText);
-
-        if (Array.isArray(aiQuestions) && aiQuestions.length > 0) {
-          // Combine DB questions + AI questions
-          const combined = [...dbQuestions];
-          for (const aiQ of aiQuestions) {
-            if (combined.length >= numQuestions) break;
-            combined.push({ ...aiQ, id: combined.length + 1 });
+            const result = await model.generateContent(prompt);
+            let rawText = result.response.text().trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+            const start = rawText.indexOf("[");
+            const end = rawText.lastIndexOf("]");
+            if (start !== -1 && end !== -1) {
+              const parsed = JSON.parse(rawText.slice(start, end + 1));
+              if (Array.isArray(parsed)) finalAiQuestions = parsed;
+            }
+          } catch (err) {
+            console.error("AI generation failed:", err);
           }
-          const outLang = dbQuestions.length > 0 ? (isHindi ? "mixed" : "en") : language;
-          return Response.json({ questions: combined, source: dbQuestions.length > 0 ? "db_and_ai" : "ai", originalLanguage: outLang });
+        })());
+      }
+
+      // Wait for both promises to complete concurrently (prevents 10s timeout!)
+      await Promise.all(promises);
+
+      // Combine results
+      const combined = [...finalDbQuestions].slice(0, numQuestions);
+      for (const aiQ of finalAiQuestions) {
+        if (combined.length >= numQuestions) break;
+        combined.push({ ...aiQ, id: combined.length + 1 });
+      }
+
+      if (combined.length >= numQuestions) {
+        // Safe check: If we asked for Hindi, but DB translation failed (it returned original English), 
+        // we must tell the frontend it's "en" so the client-side translator takes over.
+        let langToReturn = language;
+        if (isHindi && dbQuestions.length > 0 && finalDbQuestions.length > 0) {
+          if (finalDbQuestions[0].text === dbQuestions[0].text) {
+            langToReturn = "en";
+          }
         }
-      } catch (aiError) {
-        console.error("AI generation failed:", aiError.message);
-        // fall through to fallback
+        return Response.json({ questions: combined, source: dbQuestions.length > 0 ? "db_and_ai" : "ai", originalLanguage: langToReturn });
       }
     }
 
@@ -192,7 +224,7 @@ RULES:
       if (combined.length >= numQuestions) break;
       combined.push({ ...fQ, id: combined.length + 1 });
     }
-    return Response.json({ questions: combined, source: "fallback", originalLanguage: "en" });
+    return Response.json({ questions: combined, source: "fallback", originalLanguage: language });
 
   } catch (error) {
     console.error("Quiz generation error:", error);
