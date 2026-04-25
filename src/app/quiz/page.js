@@ -154,7 +154,13 @@ function QuizEngineInner() {
 
   // ── Auto-translate when language changes ──────────────────────────────────
   useEffect(() => {
-    if (questions.length === 0 || language === originalLanguage) return;
+    if (questions.length === 0) return;
+    // Need a translation if:
+    // (a) the user switched language mid-quiz, OR
+    // (b) questions were loaded in 'en' but user is currently in 'hi'
+    const needsTranslation = language !== originalLanguage ||
+      (language === "hi" && !translatedQuestionsMap["hi"]);
+    if (!needsTranslation) return;
     if (translatedQuestionsMap[language] && translatedQuestionsMap[language].length === questions.length) return;
     if (isTranslating) return;
 
@@ -206,29 +212,32 @@ function QuizEngineInner() {
       ? urlTopics.split(",").join(", ")
       : urlTopic || "General Knowledge";
 
+    // Read language directly from localStorage to avoid stale closure during hydration race condition
+    const currentLanguage = (typeof window !== 'undefined' && localStorage.getItem('auraprep_language')) || language;
+
     try {
       const res = await fetch("/api/generate-quiz", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic: topicString, difficulty: configDifficulty, count: configQCount, language })
+        body: JSON.stringify({ topic: topicString, difficulty: configDifficulty, count: configQCount, language: currentLanguage })
       });
       const data = await res.json();
       if (data.questions && data.questions.length > 0) {
         setQuestions(data.questions);
-        const fetchedLang = data.originalLanguage || language;
+        const fetchedLang = data.originalLanguage || currentLanguage;
         setOriginalLanguage(fetchedLang);
         setTranslatedQuestionsMap({ [fetchedLang]: data.questions });
       } else {
-        const fallback = language === "hi" ? MOCK_QUESTIONS_HI.slice(0, configQCount) : MOCK_QUESTIONS.slice(0, configQCount);
+        const fallback = currentLanguage === "hi" ? MOCK_QUESTIONS_HI.slice(0, configQCount) : MOCK_QUESTIONS.slice(0, configQCount);
         setQuestions(fallback);
-        setOriginalLanguage(language);
-        setTranslatedQuestionsMap({ [language]: fallback });
+        setOriginalLanguage(currentLanguage);
+        setTranslatedQuestionsMap({ [currentLanguage]: fallback });
       }
     } catch {
-      const fallback = language === "hi" ? MOCK_QUESTIONS_HI.slice(0, configQCount) : MOCK_QUESTIONS.slice(0, configQCount);
+      const fallback = currentLanguage === "hi" ? MOCK_QUESTIONS_HI.slice(0, configQCount) : MOCK_QUESTIONS.slice(0, configQCount);
       setQuestions(fallback);
-      setOriginalLanguage(language);
-      setTranslatedQuestionsMap({ [language]: fallback });
+      setOriginalLanguage(currentLanguage);
+      setTranslatedQuestionsMap({ [currentLanguage]: fallback });
     } finally {
       setIsLoadingQuestions(false);
       setIsStarted(true);

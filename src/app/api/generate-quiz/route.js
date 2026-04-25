@@ -379,7 +379,20 @@ function buildFallbackQuestions(topic, count, isHindi = false) {
 
   // Strict topic filtering
   const topicLower = (topic || "").toLowerCase();
-  
+
+  // ─── USE HINDI BANK WHEN REQUESTED ────────────────────────────────────────
+  if (isHindi) {
+    let hiPool = BANK_HI.filter(q => q.topic.toLowerCase().includes(topicLower) || topicLower.includes(q.topic.toLowerCase().split(" ")[0]));
+    if (hiPool.length === 0) hiPool = BANK_HI;
+    const hiShuffled = [...hiPool];
+    for (let i = hiShuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [hiShuffled[i], hiShuffled[j]] = [hiShuffled[j], hiShuffled[i]];
+    }
+    return hiShuffled.slice(0, Math.min(count, hiShuffled.length)).map((q, i) => ({ ...q, id: i + 1 }));
+  }
+  // ──────────────────────────────────────────────────────────────────────────
+
   let pool = BANK.filter(q => q.topic.toLowerCase() === topicLower);
   
   if (pool.length === 0) {
