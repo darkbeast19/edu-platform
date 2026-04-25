@@ -7,8 +7,9 @@ import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request) {
   try {
-    const { topic = "General Knowledge", difficulty = "Intermediate", count = 10 } = await request.json();
-    const numQuestions = Math.min(Math.max(parseInt(count) || 10, 1), 50); // clamp 1-50
+    const { topic = "General Knowledge", difficulty = "Intermediate", count = 10, language = "en" } = await request.json();
+    const numQuestions = Math.min(Math.max(parseInt(count) || 10, 1), 50);
+    const isHindi = language === "hi";
 
     // Initialize Supabase Server Client (With Auth)
     const supabase = await createClient();
@@ -121,8 +122,13 @@ export async function POST(request) {
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
         const needed = numQuestions - dbQuestions.length;
+        const langInstruction = isHindi
+          ? `IMPORTANT: Generate ALL text (question, options, step_by_step, shortcut, mistake_reason) in HINDI language (Devanagari script). Do NOT use English for any field except numbers and formulas.`
+          : `Generate in English.`;
+
         const prompt = `You are an expert exam setter for Indian competitive exams (SSC, Railway, Banking).
 Generate exactly ${needed} multiple choice questions on the topic: "${topic}" at difficulty: "${difficulty}".
+${langInstruction}
 
 RULES:
 - Return ONLY a JSON array. No explanations, no markdown, no triple backticks.
@@ -178,7 +184,7 @@ RULES:
     }
 
     // ── 3. Static fallback bank ─────────────────────────────────────────────
-    const fallbackBank = buildFallbackQuestions(topic, numQuestions);
+    const fallbackBank = buildFallbackQuestions(topic, numQuestions, isHindi);
     // Merge DB + fallback, padding if needed
     const combined = [...dbQuestions];
     for (const fQ of fallbackBank) {
@@ -194,7 +200,51 @@ RULES:
 }
 
 // ── Fallback question builder ─────────────────────────────────────────────
-function buildFallbackQuestions(topic, count) {
+function buildFallbackQuestions(topic, count, isHindi = false) {
+  // Hindi versions of fallback questions
+  const BANK_HI = [
+    {
+      id: 1, topic: "अनुपात और समानुपात",
+      text: "यदि A:B = 2:3 और B:C = 4:5, तो A:B:C क्या होगा?",
+      options: ["8:12:15", "2:3:5", "8:15:12", "6:12:15"], correct: 0,
+      step_by_step: "A:B को 4 से गुणा करें → 8:12। B:C को 3 से गुणा करें → 12:15। संयुक्त: 8:12:15",
+      shortcut: "(2×4):(3×4):(3×5) = 8:12:15",
+      mistake_reason: "छात्र अनुपातों को सीधे जोड़ने की कोशिश करते हैं।"
+    },
+    {
+      id: 2, topic: "प्रतिशत",
+      text: "एक संख्या पहले 20% बढ़ाई जाती है, फिर 10% घटाई जाती है। शुद्ध परिवर्तन क्या होगा?",
+      options: ["8% वृद्धि", "10% वृद्धि", "12% वृद्धि", "कोई परिवर्तन नहीं"], correct: 0,
+      step_by_step: "100 → +20% → 120 → -10% → 108। शुद्ध परिवर्तन = +8%",
+      shortcut: "शुद्ध% = 20 - 10 - (20×10)/100 = 8% वृद्धि",
+      mistake_reason: "20% और -10% को सीधे जोड़ना गलत है।"
+    },
+    {
+      id: 3, topic: "समय और कार्य",
+      text: "A एक काम 10 दिन में, B 15 दिन में कर सकता है। दोनों मिलकर कितने दिन में करेंगे?",
+      options: ["5 दिन", "6 दिन", "8 दिन", "12 दिन"], correct: 1,
+      step_by_step: "(10×15)/(10+15) = 150/25 = 6 दिन",
+      shortcut: "सूत्र: (a×b)/(a+b)",
+      mistake_reason: "दरों को जोड़ने के बजाय दिनों को जोड़ देना।"
+    },
+    {
+      id: 4, topic: "सामान्य ज्ञान",
+      text: "भारतीय संविधान का कौन सा अनुच्छेद अस्पृश्यता को समाप्त करता है?",
+      options: ["अनुच्छेद 14", "अनुच्छेद 17", "अनुच्छेद 21", "अनुच्छेद 32"], correct: 1,
+      step_by_step: "अनुच्छेद 17 अस्पृश्यता को समाप्त करता है।",
+      shortcut: "17 → अस्पृश्यता समाप्ति।",
+      mistake_reason: "अनुच्छेद 14 (कानून के समक्ष समता) से भ्रमित होना।"
+    },
+    {
+      id: 5, topic: "सामान्य ज्ञान",
+      text: "'भारत की खोज' पुस्तक किसने लिखी?",
+      options: ["महात्मा गांधी", "जवाहरलाल नेहरू", "सुभाष चंद्र बोस", "लाल बहादुर शास्त्री"], correct: 1,
+      step_by_step: "जवाहरलाल नेहरू ने 1944 में 'भारत की खोज' लिखी।",
+      shortcut: "नेहरू → भारत की खोज। गांधी → सत्य के साथ मेरे प्रयोग।",
+      mistake_reason: "स्वतंत्रता नेताओं की पुस्तकों को अधिक ध्यान से पढ़ें।"
+    },
+  ];
+
   const BANK = [
     {
       id: 1, topic: "Ratio & Proportion",

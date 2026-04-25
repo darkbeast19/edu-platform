@@ -186,16 +186,23 @@ function QuizEngineInner() {
       const res = await fetch("/api/generate-quiz", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic: topicString, difficulty: configDifficulty, count: configQCount })
+        body: JSON.stringify({ topic: topicString, difficulty: configDifficulty, count: configQCount, language })
       });
       const data = await res.json();
       if (data.questions && data.questions.length > 0) {
         setQuestions(data.questions);
+        if (language === "hi") {
+          setTranslatedQuestionsMap({ hi: data.questions });
+        }
       } else {
-        setQuestions(MOCK_QUESTIONS.slice(0, configQCount));
+        const fallback = MOCK_QUESTIONS.slice(0, configQCount);
+        setQuestions(fallback);
+        if (language === "hi") setTranslatedQuestionsMap({ hi: fallback });
       }
     } catch {
-      setQuestions(MOCK_QUESTIONS.slice(0, configQCount));
+      const fallback = MOCK_QUESTIONS.slice(0, configQCount);
+      setQuestions(fallback);
+      if (language === "hi") setTranslatedQuestionsMap({ hi: fallback });
     } finally {
       setIsLoadingQuestions(false);
       setIsStarted(true);
