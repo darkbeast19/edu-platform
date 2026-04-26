@@ -555,13 +555,23 @@ function QuizEngineInner() {
             </div>
           )}
 
-          <h2 className="text-xl lg:text-2xl font-semibold text-white leading-relaxed flex gap-4 mb-8">
-            <span className="text-blue-500 font-mono flex-shrink-0">Q{currentQuestionIdx + 1}.</span>
-            <span>{currentQ?.text || "Loading..."}</span>
-          </h2>
+          {/* Question Text with Translator Blur */}
+          <div className={`transition-all duration-300 relative ${isTranslating ? 'opacity-40 blur-sm pointer-events-none' : 'opacity-100'}`}>
+            {isTranslating && (
+              <div className="absolute inset-0 flex items-center justify-center z-10">
+                <div className="bg-blue-500/20 text-blue-400 font-bold px-6 py-3 rounded-xl border border-blue-500/30 animate-pulse flex items-center gap-2 shadow-2xl">
+                  <span className="animate-spin text-xl">⏳</span> {language === 'hi' ? 'अनुवाद हो रहा है...' : 'Translating...'}
+                </div>
+              </div>
+            )}
+            <h2 className="text-xl lg:text-2xl font-semibold text-white leading-relaxed flex gap-4 mb-8">
+              <span className="text-blue-500 font-mono flex-shrink-0">Q{currentQuestionIdx + 1}.</span>
+              <span>{currentQ?.text || "Loading..."}</span>
+            </h2>
+          </div>
 
           {/* Options */}
-          <div className="space-y-3 mb-8 w-full max-w-3xl">
+          <div className={`space-y-3 mb-8 w-full max-w-3xl transition-all duration-300 ${isTranslating ? 'opacity-40 blur-sm pointer-events-none' : 'opacity-100'}`}>
             {currentQ?.options?.map((opt, idx) => {
               const isSelected = selectedAnswers[currentQuestionIdx] === idx;
               let cls = "border-white/10 hover:border-blue-500/50 hover:bg-white/[0.03]";

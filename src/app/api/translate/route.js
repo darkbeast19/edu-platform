@@ -6,81 +6,76 @@
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-export const maxDuration = 60; // seconds — available on Vercel Pro/Hobby with Next.js 14+
+export const maxDuration = 60; // seconds
 
 export async function POST(request) {
   try {
     const { questions, targetLanguage = "Hindi" } = await request.json();
 
     if (!questions || !Array.isArray(questions) || questions.length === 0) {
-      return Response.json({ error: "Invalid questions array provided." }, { status: 400 });
+      return Response.json({ error: "Invalid questions array" }, { status: 400 });
     }
 
     if (!process.env.GEMINI_API_KEY) {
-      // No API key — return original questions so UI doesn't break
       return Response.json({ translated: questions });
     }
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    // Process in batches of 5 to stay well within token limits and avoid timeouts
-    const BATCH_SIZE = 5;
+    // Process in tiny batches of 3 to prevent timeouts and JSON formatting errors
+    const BATCH_SIZE = 3;
     const translatedQuestions = [];
+
+    const isToHindi = targetLanguage === "Hindi";
+    const sourceLanguage = isToHindi ? "English" : "Hindi";
 
     for (let i = 0; i < questions.length; i += BATCH_SIZE) {
       const batch = questions.slice(i, i + BATCH_SIZE);
 
-      const isToHindi = targetLanguage === "Hindi";
-      const sourceLanguage = isToHindi ? "English" : "Hindi";
+      const prompt = `You are a professional translator. Translate the following exam questions from ${sourceLanguage} to ${targetLanguage}.
+CRITICAL INSTRUCTIONS:
+- You must reply ONLY with a valid JSON array.
+- DO NOT wrap the JSON in markdown formatting (no \`\`\`json).
+- Translate ONLY these string fields: "text", "options" (array), "step_by_step", "shortcut", "mistake_reason", "topic".
+- KEEP all numbers, math symbols, IDs, and boolean values exactly as they are.
 
-      const prompt = `Translate these exam questions from ${sourceLanguage} to ${targetLanguage}.
-Return ONLY valid JSON array — no markdown, no backticks, no extra text.
-
-Input:
-${JSON.stringify(batch)}
-
-Rules:
-- Keep the exact same JSON structure and all keys unchanged.
-- Only translate these string fields: "text", "options" (array), "step_by_step", "shortcut", "mistake_reason", "topic".
-- Keep numbers, formulas, IDs, and booleans exactly as-is.
-- "options" must remain a JSON array of translated strings.
-- Output must start with [ and end with ]`;
+JSON to translate:
+${JSON.stringify(batch)}`;
 
       try {
         const result = await model.generateContent(prompt);
         let rawText = result.response.text().trim();
-
-        // Strip any markdown fencing
+        
+        // Aggressively clean the AI response to ensure valid JSON
         rawText = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
-
-        // Extract JSON array
+        
         const start = rawText.indexOf("[");
         const end = rawText.lastIndexOf("]");
-        if (start === -1 || end === -1) throw new Error("No JSON array found in response");
+        
+        if (start === -1 || end === -1) throw new Error("No JSON array bounds found");
         rawText = rawText.slice(start, end + 1);
 
         const parsed = JSON.parse(rawText);
-
-        if (Array.isArray(parsed) && parsed.length === batch.length) {
+        
+        if (Array.isArray(parsed) && parsed.length > 0) {
           translatedQuestions.push(...parsed);
         } else {
-          // Partial parse — push what we have, pad with originals
-          const safeLength = Math.min(parsed.length, batch.length);
-          translatedQuestions.push(...parsed.slice(0, safeLength));
-          translatedQuestions.push(...batch.slice(safeLength));
+          translatedQuestions.push(...batch);
         }
-      } catch (batchError) {
-        console.error(`Batch ${Math.floor(i / BATCH_SIZE) + 1} translation failed:`, batchError.message);
-        // Safe fallback: push original English questions for this batch
+      } catch (err) {
+        console.error(`Batch ${Math.floor(i / BATCH_SIZE) + 1} translation failed:`, err.message);
+        // Fallback to original text for this tiny batch if it completely fails
         translatedQuestions.push(...batch);
       }
     }
 
-    return Response.json({ translated: translatedQuestions });
+    // Ensure we return exactly the same number of questions
+    const safeTranslated = translatedQuestions.slice(0, questions.length);
+    return Response.json({ translated: safeTranslated });
+
   } catch (error) {
-    console.error("Translation API error:", error);
-    // Return original questions so the UI doesn't break
+    console.error("Fatal Translation API error:", error);
     return Response.json({ translated: [] }, { status: 500 });
   }
 }
