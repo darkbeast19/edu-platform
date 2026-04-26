@@ -157,14 +157,22 @@ function QuizEngineInner() {
   }
 
   // ── Auto-translate when language changes ──────────────────────────────────
-  // baseQuestions = whatever language came from the API
-  // translatedQuestionsMap caches the other language version
+  // STRATEGY: Questions are ALWAYS generated in English (originalLanguage is always 'en').
+  // When user toggles to Hindi, we translate English→Hindi and cache it.
+  // When user toggles back to English, we use the cached original baseQuestions.
   useEffect(() => {
     if (baseQuestions.length === 0) return;
-    // Do we already have this language cached?
-    if (translatedQuestionsMap[language] && translatedQuestionsMap[language].length === baseQuestions.length) return;
-    // No need to translate if current language matches what API returned
-    if (language === originalLanguage) return;
+
+    // If switching back to English, just use the cached English (baseQuestions)
+    if (language === "en") {
+      setTranslatedQuestionsMap(prev => ({ ...prev, en: baseQuestions }));
+      return;
+    }
+
+    // If Hindi translation is already cached and complete, skip
+    if (translatedQuestionsMap["hi"] && translatedQuestionsMap["hi"].length === baseQuestions.length) return;
+
+    // Prevent double-firing
     if (isTranslating) return;
 
     let cancelled = false;
@@ -172,17 +180,16 @@ function QuizEngineInner() {
       setIsTranslating(true);
       setTranslateError(false);
       try {
-        // Always translate FROM the base (API-returned) questions
-        const targetLang = language === "hi" ? "Hindi" : "English";
+        // Always translate from English base → Hindi
         const res = await fetch("/api/translate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ questions: baseQuestions, targetLanguage: targetLang })
+          body: JSON.stringify({ questions: baseQuestions, targetLanguage: "Hindi" })
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (!cancelled && data.translated && data.translated.length > 0) {
-          setTranslatedQuestionsMap(prev => ({ ...prev, [language]: data.translated }));
+          setTranslatedQuestionsMap(prev => ({ ...prev, hi: data.translated }));
         } else if (!cancelled) {
           setTranslateError(true);
         }
@@ -196,7 +203,7 @@ function QuizEngineInner() {
     fetchTranslation();
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [language, baseQuestions, originalLanguage]);
+  }, [language, baseQuestions]);
 
   // ── Start Quiz ────────────────────────────────────────────────────────────
   const handleStartQuiz = async () => {
@@ -208,7 +215,7 @@ function QuizEngineInner() {
     setIsSubmitted(false);
     setShowScoreboard(false);
     setTimeLeft(configTimerMode === null ? 0 : configTimerMode);
-    // ★ Reset translation cache so Hindi re-fetches for the new question set
+    // Reset translation cache for fresh start
     setTranslatedQuestionsMap({});
     setTranslateError(false);
 
@@ -217,35 +224,33 @@ function QuizEngineInner() {
       ? urlTopics.split(",").join(", ")
       : urlTopic || "General Knowledge";
 
-    // Read language directly from localStorage to avoid stale closure during hydration race condition
-    const currentLanguage = (typeof window !== 'undefined' && localStorage.getItem('auraprep_language')) || language;
-
+    // ALWAYS generate in English. Translation to Hindi is handled by the useEffect below.
+    // This removes all ambiguity around originalLanguage and ensures the toggle always works.
     try {
       const res = await fetch("/api/generate-quiz", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic: topicString, difficulty: configDifficulty, count: configQCount, language: currentLanguage })
+        body: JSON.stringify({ topic: topicString, difficulty: configDifficulty, count: configQCount, language: "en" })
       });
       const data = await res.json();
       if (data.questions && data.questions.length > 0) {
         setQuestions(data.questions);
-        setBaseQuestions(data.questions); // Store as base for toggle translation
-        const fetchedLang = data.originalLanguage || currentLanguage;
-        setOriginalLanguage(fetchedLang);
-        setTranslatedQuestionsMap({ [fetchedLang]: data.questions });
+        setBaseQuestions(data.questions);       // English base — always
+        setOriginalLanguage("en");              // Always English
+        setTranslatedQuestionsMap({ en: data.questions }); // Cache English version
       } else {
-        const fallback = currentLanguage === "hi" ? MOCK_QUESTIONS_HI.slice(0, configQCount) : MOCK_QUESTIONS.slice(0, configQCount);
+        const fallback = MOCK_QUESTIONS.slice(0, configQCount);
         setQuestions(fallback);
         setBaseQuestions(fallback);
-        setOriginalLanguage(currentLanguage);
-        setTranslatedQuestionsMap({ [currentLanguage]: fallback });
+        setOriginalLanguage("en");
+        setTranslatedQuestionsMap({ en: fallback });
       }
     } catch {
-      const fallback = currentLanguage === "hi" ? MOCK_QUESTIONS_HI.slice(0, configQCount) : MOCK_QUESTIONS.slice(0, configQCount);
+      const fallback = MOCK_QUESTIONS.slice(0, configQCount);
       setQuestions(fallback);
       setBaseQuestions(fallback);
-      setOriginalLanguage(currentLanguage);
-      setTranslatedQuestionsMap({ [currentLanguage]: fallback });
+      setOriginalLanguage("en");
+      setTranslatedQuestionsMap({ en: fallback });
     } finally {
       setIsLoadingQuestions(false);
       setIsStarted(true);
