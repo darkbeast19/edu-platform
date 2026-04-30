@@ -426,15 +426,18 @@ function buildFallbackQuestions(topic, count, isHindi = false) {
 
   let pool = bank.filter(q => q.topic.toLowerCase().includes(topicLower) || topicLower.includes(q.topic.toLowerCase().split(" ")[0]));
   
-  // Pad with other questions from the bank if we don't have enough matches
-  if (pool.length < count) {
+  // Ensure we have at least something in the pool
+  if (pool.length === 0) pool = [...bank];
+
+  // Keep padding with questions until we reach the requested count!
+  while (pool.length < count) {
     const remainingBank = bank.filter(q => !pool.includes(q));
-    // Shuffle the remaining ones randomly
-    for (let i = remainingBank.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [remainingBank[i], remainingBank[j]] = [remainingBank[j], remainingBank[i]];
+    if (remainingBank.length > 0) {
+      pool.push({ ...remainingBank[Math.floor(Math.random() * remainingBank.length)] });
+    } else {
+      // If we exhausted all unique questions, we must duplicate from the main bank to fulfill the count
+      pool.push({ ...bank[Math.floor(Math.random() * bank.length)] });
     }
-    pool = [...pool, ...remainingBank.slice(0, count - pool.length)];
   }
 
   const shuffled = [...pool];
@@ -443,5 +446,5 @@ function buildFallbackQuestions(topic, count, isHindi = false) {
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
 
-  return shuffled.slice(0, Math.min(count, shuffled.length)).map((q, i) => ({ ...q, id: i + 1 }));
+  return shuffled.slice(0, count).map((q, i) => ({ ...q, id: i + 1 }));
 }

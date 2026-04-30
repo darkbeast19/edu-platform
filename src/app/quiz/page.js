@@ -239,14 +239,26 @@ function QuizEngineInner() {
         setOriginalLanguage("en");              // Always English
         setTranslatedQuestionsMap({ en: data.questions }); // Cache English version
       } else {
-        const fallback = MOCK_QUESTIONS.slice(0, configQCount);
+        // If API fails entirely, pad using MOCK_QUESTIONS to reach configQCount
+        let fallback = [...MOCK_QUESTIONS];
+        while (fallback.length < configQCount) {
+          fallback.push({ ...MOCK_QUESTIONS[Math.floor(Math.random() * MOCK_QUESTIONS.length)] });
+        }
+        // Ensure unique IDs
+        fallback = fallback.slice(0, configQCount).map((q, i) => ({ ...q, id: i + 1 }));
         setQuestions(fallback);
         setBaseQuestions(fallback);
         setOriginalLanguage("en");
         setTranslatedQuestionsMap({ en: fallback });
       }
-    } catch {
-      const fallback = MOCK_QUESTIONS.slice(0, configQCount);
+    } catch (err) {
+      console.error("Quiz start error:", err);
+      // Hard fallback with padding
+      let fallback = [...MOCK_QUESTIONS];
+      while (fallback.length < configQCount) {
+        fallback.push({ ...MOCK_QUESTIONS[Math.floor(Math.random() * MOCK_QUESTIONS.length)] });
+      }
+      fallback = fallback.slice(0, configQCount).map((q, i) => ({ ...q, id: i + 1 }));
       setQuestions(fallback);
       setBaseQuestions(fallback);
       setOriginalLanguage("en");
