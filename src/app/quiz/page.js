@@ -664,10 +664,8 @@ function QuizEngineInner() {
             )}
           </AnimatePresence>
 
-          <div className="py-12" />
-
           {/* Navigation Footer */}
-          <div className="sticky bottom-0 bg-[#0a0a0f] border-t border-white/10 p-4 mt-auto w-full flex flex-wrap items-center justify-between gap-4 z-40">
+          <div className="sticky bottom-0 bg-[#0a0a0f] border-t border-white/10 p-4 mt-6 w-full flex flex-wrap items-center justify-between gap-4 z-40">
             <button
               onClick={() => {
                 const s = new Set(markedForReview);
