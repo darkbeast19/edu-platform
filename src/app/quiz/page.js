@@ -465,48 +465,61 @@ function QuizEngineInner() {
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-slate-200 font-sans flex flex-col">
       {/* Top Bar */}
-      <div className="sticky top-0 z-50 bg-[#0a0a0f]/90 backdrop-blur-md border-b border-white/10 px-6 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-6 w-1/3">
-          <Link href="/dashboard" className="text-slate-400 hover:text-white font-bold hidden md:block">{language === 'en' ? 'Quit' : 'छोड़ें'}</Link>
-          <div className="flex flex-col w-full max-w-[150px] ml-4">
-            <span className="text-xs text-slate-400 font-bold mb-1 tracking-wider">{language === 'en' ? 'PROGRESS' : 'प्रगति'}</span>
+      {/* Top Bar */}
+      <div className="sticky top-0 z-50 bg-[#0a0a0f]/80 backdrop-blur-xl border-b border-white/10 px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between shadow-sm">
+        {/* Left Side: Quit & Progress */}
+        <div className="flex items-center gap-3 sm:gap-6 flex-1">
+          <Link href="/dashboard" className="text-slate-400 hover:text-white transition group flex items-center gap-1" title={language === 'en' ? 'Quit Quiz' : 'क्विज़ छोड़ें'}>
+            <span className="hidden md:inline font-bold text-sm tracking-wide">{language === 'en' ? 'Quit' : 'छोड़ें'}</span>
+            <div className="md:hidden p-2 bg-white/5 rounded-full group-hover:bg-red-500/20 group-hover:text-red-400 transition-all">
+              <ChevronLeft className="w-4 h-4" />
+            </div>
+          </Link>
+          
+          <div className="flex flex-col w-full max-w-[100px] sm:max-w-[150px]">
+            <span className="text-[10px] sm:text-xs text-slate-400 font-bold mb-1 tracking-widest uppercase">{language === 'en' ? 'PROGRESS' : 'प्रगति'}</span>
             <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-              <div className="h-full bg-blue-500 transition-all duration-500" style={{ width: `${progressPct}%` }} />
+              <div className="h-full bg-gradient-to-r from-blue-600 to-cyan-400 transition-all duration-500" style={{ width: `${progressPct}%` }} />
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        {/* Right Side: Translation, Timer, XP */}
+        <div className="flex items-center gap-2 sm:gap-4 justify-end">
+          {/* Translation Toggle */}
           <button
              onClick={() => { if (!isTranslating) { setTranslateError(false); toggleLanguage(); } }}
              disabled={isTranslating}
-             className={`hidden sm:flex px-4 py-2 rounded-xl border text-xs font-bold text-white items-center gap-2 transition ${
+             title={language === 'en' ? 'Translate to Hindi' : 'Switch to English'}
+             className={`flex items-center justify-center p-2 sm:px-4 sm:py-2 rounded-xl border text-xs font-bold transition-all shadow-sm ${
                translateError
-                 ? 'border-red-500/50 bg-red-500/10 hover:bg-red-500/20'
-                 : 'border-white/20 hover:bg-white/10'
+                 ? 'border-red-500/50 bg-red-500/10 hover:bg-red-500/20 text-red-400'
+                 : isTranslating
+                 ? 'border-blue-500/50 bg-blue-500/10 text-blue-400'
+                 : 'border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 text-white'
              }`}
           >
              {isTranslating ? (
-               <><div className="animate-spin w-4 h-4 border-2 border-white/20 border-t-white rounded-full"/> {language === 'en' ? 'Translating...' : 'अनुवाद हो रहा है...'}</>
+               <><div className="animate-spin w-4 h-4 sm:mr-2 border-2 border-current border-t-transparent rounded-full"/><span className="hidden sm:inline"> {language === 'en' ? 'Translating...' : 'अनुवाद...'}</span></>
              ) : translateError ? (
-               <><Languages className="w-4 h-4 text-red-400" /> {language === 'en' ? 'Retry Hindi' : 'पुनः प्रयास'}</>
+               <><Languages className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline"> {language === 'en' ? 'Retry' : 'पुनः प्रयास'}</span></>
              ) : (
-               <><Languages className="w-4 h-4 text-blue-400" /> {language === "en" ? "हिंदी में देखें" : "English Mode"}</>
+               <><Languages className="w-4 h-4 sm:mr-2 text-blue-400" /><span className="hidden sm:inline"> {language === "en" ? "हिंदी" : "English"}</span></>
              )}
           </button>
 
-          <div className={`flex items-center gap-3 px-5 py-2 rounded-2xl border ${configTimerMode !== null && timeLeft < 60 ? "bg-red-500/10 border-red-500/30" : "bg-white/5 border-white/10"}`}>
-            <Clock className={`w-5 h-5 ${configTimerMode !== null && timeLeft < 60 ? "text-red-400 animate-pulse" : "text-blue-400"}`} />
-            <span className={`text-xl font-mono font-bold tracking-wider ${configTimerMode !== null && timeLeft < 60 ? "text-red-300" : "text-white"}`}>
-              {configTimerMode === null ? "∞" : formatTime(timeLeft)}
+          {/* Timer */}
+          <div className={`flex items-center gap-1.5 sm:gap-3 px-3 py-1.5 sm:px-5 sm:py-2 rounded-xl sm:rounded-2xl border shadow-inner ${configTimerMode !== null && timeLeft < 60 ? "bg-red-500/10 border-red-500/30" : "bg-[#12121a] border-white/5"}`}>
+            <Clock className={`w-4 h-4 sm:w-5 sm:h-5 ${configTimerMode !== null && timeLeft < 60 ? "text-red-400 animate-pulse" : "text-blue-500"}`} />
+            <span className={`text-base sm:text-xl font-mono font-bold tracking-wider ${configTimerMode !== null && timeLeft < 60 ? "text-red-400" : "text-slate-100"}`}>
+              {configTimerMode === null ? '∞' : formatTime(timeLeft)}
             </span>
           </div>
-        </div>
 
-        <div className="flex items-center justify-end gap-3 w-1/3">
-          <div className="flex items-center gap-2 bg-yellow-500/10 border border-yellow-500/20 px-4 py-1.5 rounded-full">
-            <Trophy className="w-4 h-4 text-yellow-500" />
-            <span className="text-yellow-200 font-bold text-sm">+{xpEarned} XP</span>
+          {/* XP Badge (hidden on mobile) */}
+          <div className="items-center gap-2 px-3 sm:px-4 py-2 bg-gradient-to-br from-yellow-500/20 to-orange-500/10 border border-yellow-500/20 rounded-xl text-yellow-400 font-bold hidden lg:flex shadow-sm">
+            <Trophy className="w-4 h-4 drop-shadow-[0_0_8px_rgba(234,179,8,0.5)]" />
+            <span>+{xpEarned} XP</span>
           </div>
         </div>
       </div>
