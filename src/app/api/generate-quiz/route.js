@@ -21,7 +21,7 @@ export async function POST(request) {
         try {
           const { GoogleGenerativeAI } = await import("@google/generative-ai");
           const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-          const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+          const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
           const prompt = `आप भारतीय प्रतियोगी परीक्षाओं (SSC, Railway, Banking, UPSC) के विशेषज्ञ परीक्षा-निर्माता हैं।
 विषय: "${topic}" पर कठिनाई: "${difficulty}" के अनुसार ठीक ${numQuestions} बहुविकल्पीय प्रश्न बनाएं।
@@ -178,7 +178,7 @@ export async function POST(request) {
       try {
         const { GoogleGenerativeAI } = await import("@google/generative-ai");
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
         const needed = numQuestions - dbQuestions.length;
         const prompt = `You are an expert exam setter for Indian competitive exams (SSC, Railway, Banking).
@@ -219,6 +219,17 @@ RULES:
               if (combined.length >= numQuestions) break;
               combined.push({ ...aiQ, id: combined.length + 1 });
             }
+            
+            // Pad if AI returned fewer than requested
+            if (combined.length < numQuestions) {
+              const fallbackBank = buildFallbackQuestions(topic, numQuestions - combined.length, false);
+              for (const fQ of fallbackBank) {
+                if (combined.length >= numQuestions) break;
+                combined.push({ ...fQ, id: combined.length + 1 });
+              }
+              return Response.json({ questions: combined, source: "ai_padded", originalLanguage: "en" });
+            }
+
             return Response.json({ questions: combined, source: dbQuestions.length > 0 ? "db_and_ai" : "ai", originalLanguage: "en" });
           }
         }
@@ -414,7 +425,17 @@ function buildFallbackQuestions(topic, count, isHindi = false) {
   const topicLower = (topic || "").toLowerCase();
 
   let pool = bank.filter(q => q.topic.toLowerCase().includes(topicLower) || topicLower.includes(q.topic.toLowerCase().split(" ")[0]));
-  if (pool.length === 0) pool = bank;
+  
+  // Pad with other questions from the bank if we don't have enough matches
+  if (pool.length < count) {
+    const remainingBank = bank.filter(q => !pool.includes(q));
+    // Shuffle the remaining ones randomly
+    for (let i = remainingBank.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [remainingBank[i], remainingBank[j]] = [remainingBank[j], remainingBank[i]];
+    }
+    pool = [...pool, ...remainingBank.slice(0, count - pool.length)];
+  }
 
   const shuffled = [...pool];
   for (let i = shuffled.length - 1; i > 0; i--) {
