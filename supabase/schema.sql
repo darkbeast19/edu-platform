@@ -269,10 +269,10 @@ ALTER TABLE public.daily_rewards    ENABLE ROW LEVEL SECURITY;
 
 -- Profiles: Users can only read/update their own profile
 CREATE POLICY "Users can view own profile"
-  ON public.profiles FOR SELECT USING (auth.uid() = id);
+  ON public.profiles FOR SELECT USING ((SELECT auth.uid()) = id);
 
 CREATE POLICY "Users can update own profile"
-  ON public.profiles FOR UPDATE USING (auth.uid() = id);
+  ON public.profiles FOR UPDATE USING ((SELECT auth.uid()) = id);
 
 -- Questions: Anyone authenticated can read active questions
 CREATE POLICY "Anyone can read active questions"
@@ -280,19 +280,19 @@ CREATE POLICY "Anyone can read active questions"
 
 -- Quiz Sessions: Users can only see their own sessions
 CREATE POLICY "Users can manage own sessions"
-  ON public.quiz_sessions FOR ALL USING (auth.uid() = user_id);
+  ON public.quiz_sessions FOR ALL USING ((SELECT auth.uid()) = user_id);
 
 -- User Answers: Users can only see their own answers
 CREATE POLICY "Users can manage own answers"
-  ON public.user_answers FOR ALL USING (auth.uid() = user_id);
+  ON public.user_answers FOR ALL USING ((SELECT auth.uid()) = user_id);
 
 -- Weak Topics: Users can only see their own weak topics
 CREATE POLICY "Users can manage own weak topics"
-  ON public.user_weak_topics FOR ALL USING (auth.uid() = user_id);
+  ON public.user_weak_topics FOR ALL USING ((SELECT auth.uid()) = user_id);
 
 -- Daily Rewards: Users can only see their own rewards
 CREATE POLICY "Users can view own rewards"
-  ON public.daily_rewards FOR ALL USING (auth.uid() = user_id);
+  ON public.daily_rewards FOR ALL USING ((SELECT auth.uid()) = user_id);
 
 -- ============================================================
 -- 11. FUNCTIONS & TRIGGERS
