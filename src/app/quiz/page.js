@@ -157,20 +157,17 @@ function QuizEngineInner() {
   }
 
   // ── Auto-translate when language changes ──────────────────────────────────
-  // STRATEGY: Questions are ALWAYS generated in English (originalLanguage is always 'en').
-  // When user toggles to Hindi, we translate English→Hindi and cache it.
-  // When user toggles back to English, we use the cached original baseQuestions.
   useEffect(() => {
     if (baseQuestions.length === 0) return;
 
-    // If switching back to English, just use the cached English (baseQuestions)
-    if (language === "en") {
-      setTranslatedQuestionsMap(prev => ({ ...prev, en: baseQuestions }));
+    // If we switch back to the language the questions were originally generated in, use the cache
+    if (language === originalLanguage) {
+      setTranslatedQuestionsMap(prev => ({ ...prev, [originalLanguage]: baseQuestions }));
       return;
     }
 
-    // If Hindi translation is already cached and complete, skip
-    if (translatedQuestionsMap["hi"] && translatedQuestionsMap["hi"].length === baseQuestions.length) return;
+    // If the target language is already cached, skip translation
+    if (translatedQuestionsMap[language] && translatedQuestionsMap[language].length === baseQuestions.length) return;
 
     // Prevent double-firing
     if (isTranslating) return;
@@ -180,22 +177,45 @@ function QuizEngineInner() {
       setIsTranslating(true);
       setTranslateError(false);
       try {
-        // Always translate from English base → Hindi
-        const res = await fetch("/api/translate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ questions: baseQuestions, targetLanguage: "Hindi" })
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        if (!cancelled && data.translated && data.translated.length > 0) {
-          setTranslatedQuestionsMap(prev => ({ ...prev, hi: data.translated }));
+        const sl = language === "hi" ? "en" : "hi";
+        const tl = language === "hi" ? "hi" : "en";
+
+        const translatedData = await Promise.all(
+          baseQuestions.map(async (q) => {
+            try {
+              const textToTranslate = [q.text, ...(q.options || [])].join(" ||| ");
+              const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${tl}&dt=t&q=${encodeURIComponent(textToTranslate)}`;
+              const res = await fetch(url);
+              if (!res.ok) throw new Error("Google Translate API failed");
+              const data = await res.json();
+              const translatedFullText = data[0].map(item => item[0]).join("");
+              const parts = translatedFullText.split(/\s*\|\|\|\s*/);
+              return {
+                ...q,
+                text: parts[0] || q.text,
+                options: parts.slice(1, 1 + (q.options?.length || 4)).length === (q.options?.length || 4) 
+                         ? parts.slice(1, 1 + (q.options?.length || 4)) 
+                         : q.options
+              };
+            } catch (err) {
+              console.error("Single question translate error:", err);
+              return q;
+            }
+          })
+        );
+
+        if (!cancelled && translatedData && translatedData.length > 0) {
+          setTranslatedQuestionsMap(prev => ({ ...prev, [language]: translatedData }));
         } else if (!cancelled) {
           setTranslateError(true);
+          alert("Translation API failed or returned empty data. Please try again.");
         }
       } catch (err) {
         console.error("Translation Failed:", err);
-        if (!cancelled) setTranslateError(true);
+        if (!cancelled) {
+          setTranslateError(true);
+          alert("Translation timed out or failed to connect. Try again.");
+        }
       } finally {
         if (!cancelled) setIsTranslating(false);
       }
@@ -203,7 +223,7 @@ function QuizEngineInner() {
     fetchTranslation();
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [language, baseQuestions]);
+  }, [language, baseQuestions, originalLanguage]);
 
   // ── Start Quiz ────────────────────────────────────────────────────────────
   const handleStartQuiz = async () => {
@@ -215,29 +235,26 @@ function QuizEngineInner() {
     setIsSubmitted(false);
     setShowScoreboard(false);
     setTimeLeft(configTimerMode === null ? 0 : configTimerMode);
-    // Reset translation cache for fresh start
     setTranslatedQuestionsMap({});
     setTranslateError(false);
 
-    // Determine topic string: join multiple subjects or use single topic
     const topicString = urlTopics
       ? urlTopics.split(",").join(", ")
       : urlTopic || "General Knowledge";
 
-    // ALWAYS generate in English. Translation to Hindi is handled by the useEffect below.
-    // This removes all ambiguity around originalLanguage and ensures the toggle always works.
     try {
-      const res = await fetch("/api/generate-quiz", {
+      const res = await fetch("/api/quiz", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic: topicString, difficulty: configDifficulty, count: configQCount, language: "en" })
+        body: JSON.stringify({ topic: topicString, difficulty: configDifficulty, count: configQCount, language: language })
       });
       const data = await res.json();
       if (data.questions && data.questions.length > 0) {
+        const generatedLang = data.originalLanguage || language;
         setQuestions(data.questions);
-        setBaseQuestions(data.questions);       // English base — always
-        setOriginalLanguage("en");              // Always English
-        setTranslatedQuestionsMap({ en: data.questions }); // Cache English version
+        setBaseQuestions(data.questions);       
+        setOriginalLanguage(generatedLang);              
+        setTranslatedQuestionsMap({ [generatedLang]: data.questions }); 
       } else {
         // If API fails entirely, pad using MOCK_QUESTIONS to reach configQCount
         let fallback = [...MOCK_QUESTIONS];

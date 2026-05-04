@@ -146,6 +146,8 @@ export default function Home() {
                 <Search className="w-6 h-6 text-[var(--accent-green)]" />
               </div>
               <input
+                id="search-topic"
+                name="search-topic"
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}

@@ -6,6 +6,32 @@
 
 import { createClient } from "@/lib/supabase/server";
 
+async function callGroqAPI(prompt) {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) throw new Error("GROQ_API_KEY missing in .env.local");
+
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: "llama-3.3-70b-versatile", // Groq's smart & ultra-fast model
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.3
+    })
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Groq API Error: ${err}`);
+  }
+
+  const data = await res.json();
+  return data.choices[0].message.content.trim();
+}
+
 export async function POST(request) {
   try {
     const { topic = "General Knowledge", difficulty = "Intermediate", count = 10, language = "en" } = await request.json();
@@ -24,7 +50,8 @@ export async function POST(request) {
           const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
           const prompt = `आप भारतीय प्रतियोगी परीक्षाओं (SSC, Railway, Banking, UPSC) के विशेषज्ञ परीक्षा-निर्माता हैं।
-विषय: "${topic}" पर कठिनाई: "${difficulty}" के अनुसार ठीक ${numQuestions} बहुविकल्पीय प्रश्न बनाएं।
+विषय: "${topic}" पर ठीक ${numQuestions} बहुविकल्पीय प्रश्न बनाएं। 
+CRITICAL RULE: इन प्रश्नों के लिए कठिनाई स्तर (difficulty levels) का मिश्रित वितरण सुनिश्चित करें। कुछ प्रश्न "Normal", कुछ "Intermediate", और कुछ "Hard Mode" के होने चाहिए।
 
 महत्वपूर्ण नियम:
 - सभी प्रश्न, विकल्प, स्पष्टीकरण पूरी तरह HINDI (देवनागरी लिपि) में लिखें।
@@ -39,6 +66,7 @@ export async function POST(request) {
     "text": "प्रश्न का पूरा पाठ?",
     "options": ["विकल्प A", "विकल्प B", "विकल्प C", "विकल्प D"],
     "correct": 0,
+    "difficulty_level": "Normal",
     "step_by_step": "चरण-दर-चरण हल",
     "shortcut": "त्वरित शॉर्टकट ट्रिक",
     "mistake_reason": "छात्र क्यों गलती करते हैं"
@@ -69,7 +97,26 @@ export async function POST(request) {
             }
           }
         } catch (aiErr) {
-          console.error("Hindi AI generation failed:", aiErr.message);
+          console.error("Gemini Hindi failed, falling back to Groq...", aiErr.message);
+          try {
+            const rawText = await callGroqAPI(prompt);
+            const start = rawText.indexOf("[");
+            const end = rawText.lastIndexOf("]");
+            if (start !== -1 && end !== -1) {
+              const parsed = JSON.parse(rawText.slice(start, end + 1));
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                const questions = parsed.slice(0, numQuestions).map((q, i) => ({ ...q, id: i + 1 }));
+                if (questions.length >= numQuestions) {
+                  return Response.json({ questions, source: "groq_hindi", originalLanguage: "hi" });
+                }
+                const fallback = buildFallbackQuestions(topic, numQuestions - questions.length, true);
+                const combined = [...questions, ...fallback].slice(0, numQuestions).map((q, i) => ({ ...q, id: i + 1 }));
+                return Response.json({ questions: combined, source: "groq_hindi_padded", originalLanguage: "hi" });
+              }
+            }
+          } catch (groqErr) {
+            console.error("Groq Hindi fallback also failed:", groqErr.message);
+          }
         }
       }
 
@@ -85,6 +132,7 @@ export async function POST(request) {
     const { data: { user } } = await supabase.auth.getUser();
 
     let dbQuestions = [];
+    let existingQuestionsList = [];
 
     if (topic && topic.length > 0) {
       try {
@@ -124,6 +172,7 @@ export async function POST(request) {
               .limit(1000);
 
             if (fetchedQuestions && fetchedQuestions.length > 0) {
+              existingQuestionsList = fetchedQuestions;
               let candidateQuestions = fetchedQuestions.filter(q => !answeredIds.has(q.id));
 
               const seen = new Set();
@@ -173,18 +222,21 @@ export async function POST(request) {
       }
     }
 
-    // Fill remaining with Gemini (English)
-    if (process.env.GEMINI_API_KEY) {
-      try {
-        const { GoogleGenerativeAI } = await import("@google/generative-ai");
-        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    // Fill remaining with AI (English)
+    const needed = numQuestions - dbQuestions.length;
+    if (needed > 0) {
+      let avoidString = "";
+      if (existingQuestionsList.length > 0) {
+        // Provide up to 40 recent questions to the AI so it knows what to avoid
+        const sample = existingQuestionsList.map(q => q.question_text).sort(() => 0.5 - Math.random()).slice(0, 40);
+        avoidString = `\nCRITICAL RULE - AVOID DUPLICATES:\nDO NOT generate any questions that are similar or identical to these already existing questions in our database:\n${sample.map((t,i) => `${i+1}. "${t}"`).join('\n')}\n`;
+      }
 
-        const needed = numQuestions - dbQuestions.length;
-        const prompt = `You are an expert exam setter for Indian competitive exams (SSC, Railway, Banking).
-Generate exactly ${needed} multiple choice questions on the topic: "${topic}" at difficulty: "${difficulty}".
+      const prompt = `You are an expert exam setter for Indian competitive exams (SSC, Railway, Banking).
+Generate exactly ${needed} multiple choice questions on the topic: "${topic}".
+CRITICAL RULE: Ensure a mixed distribution of difficulty levels for these questions. Randomly assign them as "Normal", "Intermediate", or "Hard Mode".
 Generate in English.
-
+${avoidString}
 RULES:
 - Return ONLY a JSON array. No explanations, no markdown, no triple backticks.
 - Each object must match this exact structure:
@@ -196,6 +248,7 @@ RULES:
     "text": "Full question text here?",
     "options": ["Option A", "Option B", "Option C", "Option D"],
     "correct": 0,
+    "difficulty_level": "Normal",
     "step_by_step": "Detailed step-by-step solution",
     "shortcut": "Quick trick or shortcut",
     "mistake_reason": "Why students commonly get this wrong"
@@ -205,36 +258,59 @@ RULES:
 - "correct" must be an integer 0-3 (index of the correct option in the options array).
 - Generate all ${needed} unique questions.`;
 
-        const result = await model.generateContent(prompt);
-        let rawText = result.response.text().trim()
-          .replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+      let aiQuestions = null;
 
+      // Primary: Groq (Lightning Fast)
+      try {
+        const rawText = await callGroqAPI(prompt);
         const arrayStart = rawText.indexOf("[");
         const arrayEnd = rawText.lastIndexOf("]");
         if (arrayStart !== -1 && arrayEnd !== -1) {
-          const aiQuestions = JSON.parse(rawText.slice(arrayStart, arrayEnd + 1));
-          if (Array.isArray(aiQuestions) && aiQuestions.length > 0) {
-            const combined = [...dbQuestions];
-            for (const aiQ of aiQuestions) {
-              if (combined.length >= numQuestions) break;
-              combined.push({ ...aiQ, id: combined.length + 1 });
-            }
+          aiQuestions = JSON.parse(rawText.slice(arrayStart, arrayEnd + 1));
+        }
+      } catch (groqError) {
+        console.error("Groq English failed, falling back to Gemini...", groqError.message);
+        
+        // Fallback: Gemini (High Quality, but sometimes 503)
+        if (process.env.GEMINI_API_KEY) {
+          try {
+            const { GoogleGenerativeAI } = await import("@google/generative-ai");
+            const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+            const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
             
-            // Pad if AI returned fewer than requested
-            if (combined.length < numQuestions) {
-              const fallbackBank = buildFallbackQuestions(topic, numQuestions - combined.length, false);
-              for (const fQ of fallbackBank) {
-                if (combined.length >= numQuestions) break;
-                combined.push({ ...fQ, id: combined.length + 1 });
-              }
-              return Response.json({ questions: combined, source: "ai_padded", originalLanguage: "en" });
+            const result = await model.generateContent(prompt);
+            let rawText = result.response.text().trim()
+              .replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+            
+            const arrayStart = rawText.indexOf("[");
+            const arrayEnd = rawText.lastIndexOf("]");
+            if (arrayStart !== -1 && arrayEnd !== -1) {
+              aiQuestions = JSON.parse(rawText.slice(arrayStart, arrayEnd + 1));
             }
-
-            return Response.json({ questions: combined, source: dbQuestions.length > 0 ? "db_and_ai" : "ai", originalLanguage: "en" });
+          } catch (aiError) {
+            console.error("Gemini English fallback also failed:", aiError.message);
           }
         }
-      } catch (aiError) {
-        console.error("AI generation failed:", aiError.message);
+      }
+
+      // If AI succeeded in returning an array
+      if (Array.isArray(aiQuestions) && aiQuestions.length > 0) {
+        const combined = [...dbQuestions];
+        for (const aiQ of aiQuestions) {
+          if (combined.length >= numQuestions) break;
+          combined.push({ ...aiQ, id: combined.length + 1 });
+        }
+        
+        if (combined.length < numQuestions) {
+          const fallbackBank = buildFallbackQuestions(topic, numQuestions - combined.length, false);
+          for (const fQ of fallbackBank) {
+            if (combined.length >= numQuestions) break;
+            combined.push({ ...fQ, id: combined.length + 1 });
+          }
+          return Response.json({ questions: combined, source: "ai_padded", originalLanguage: "en" });
+        }
+
+        return Response.json({ questions: combined, source: dbQuestions.length > 0 ? "db_and_ai" : "ai", originalLanguage: "en" });
       }
     }
 
@@ -426,17 +502,28 @@ function buildFallbackQuestions(topic, count, isHindi = false) {
 
   let pool = bank.filter(q => q.topic.toLowerCase().includes(topicLower) || topicLower.includes(q.topic.toLowerCase().split(" ")[0]));
   
-  // Ensure we have at least something in the pool
-  if (pool.length === 0) pool = [...bank];
-
+  // If we have no questions for this topic in the bank, create dynamic placeholders!
+  if (pool.length === 0) {
+    pool = [
+      {
+        id: 1, topic: topic || "General",
+        text: `Sample Question 1 for ${topic || "this topic"} (AI generation temporarily unavailable due to high demand)`,
+        options: ["Option A", "Option B", "Option C", "Option D"], correct: 0,
+        step_by_step: "This is a fallback placeholder because the AI service is currently overloaded. Please try again later.",
+        shortcut: "N/A",
+        mistake_reason: "N/A"
+      }
+    ];
+  }
   // Keep padding with questions until we reach the requested count!
   while (pool.length < count) {
-    const remainingBank = bank.filter(q => !pool.includes(q));
+    const remainingBank = bank.filter(q => !pool.includes(q) && q.topic.toLowerCase().includes(topicLower));
     if (remainingBank.length > 0) {
       pool.push({ ...remainingBank[Math.floor(Math.random() * remainingBank.length)] });
     } else {
-      // If we exhausted all unique questions, we must duplicate from the main bank to fulfill the count
-      pool.push({ ...bank[Math.floor(Math.random() * bank.length)] });
+      // If we exhausted all unique matching questions (or only have placeholders), duplicate them
+      const baseQ = pool[Math.floor(Math.random() * pool.length)];
+      pool.push({ ...baseQ, text: `${baseQ.text} (Variation ${pool.length + 1})` });
     }
   }
 
